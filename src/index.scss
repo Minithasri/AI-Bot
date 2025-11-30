@@ -1,3 +1,44 @@
 // Custom Variables
 @import "assets/scss/app.scss";
 @import "assets/scss/icons.scss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* AG Grid styles */
+@import "ag-grid-community/styles/ag-grid.css";
+@import "ag-grid-community/styles/ag-theme-alpine.css";
+.ag-theme-quartz .ag-row-odd {
+  background-color: #fafafa;
+}
+/* Hover zoom effect */
+.ag-theme-quartz .ag-row:hover {
+  transform: scale(1.002);
+  transition: transform 0.1s ease-in-out;
+}
+
+/* Rounded border */
+.ag-root-wrapper {
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+/* Horizontal scrollbar styles */
+.ag-center-cols-container {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.ag-center-cols-container .ag-cell:last-child {
+  border-right: none;
+}
+
+/*  remove vertical lines from headers */
+.ag-header-cell {
+  border-right: none !important;
+}
+/* Remove floating filter input box */
+.ag-theme-alpine .ag-floating-filter-input,
+.ag-theme-quartz .ag-floating-filter-input {
+  display: none !important;
+}

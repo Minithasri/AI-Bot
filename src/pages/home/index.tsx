@@ -1,5 +1,13 @@
+/* eslint-disable prettier/prettier */
+
+import RecordsFetch from "./RecordsFetch";
+/* eslint-disable react/react-in-jsx-scope */
 const HomePage = () => {
-  return <div className="text-center">Welcome to Home Page</div>;
+  return (
+    <>
+      <RecordsFetch />
+    </>
+  );
 };
 
 export default HomePage;

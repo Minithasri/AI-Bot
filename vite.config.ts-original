@@ -13,3 +13,33 @@ export default defineConfig({
     },
   },
 })
+
+
+// {
+//   "name": "fileUpload-FinanceUsecase",
+//   "version": "0.0.1",
+//   "size": {
+//     "width": 3,
+//     "height": 3
+//   },
+//   "mapping": [],
+//   "collections": [
+//     {
+//       "id": "c35c4092-63bf-4996-8763-897f479df364",
+//       "name": "Amex_data",
+//       "syncEnabled": true,
+//       "schema": { "columns": [ {
+//         "name":"filename",
+//         "type":"string"
+//       }
+//       ] }
+//     }
+//   ],
+//   "workflowMapping": [],
+//   "id": "3f17ef98-bd0c-42db-b959-554d412cc37c",
+//   "proxyId": "e3384009-47cd-43e4-adb8-d144170a2ffb"
+// }
+
+ domo.post("/domo/datastores/v1/collections/Amex_data/documents", {
+        content: { field1: "hello", field2: "world" },
+      });

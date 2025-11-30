@@ -20,9 +20,9 @@ import React from "react";
 // import LanguageDropdown from '../components/LanguageDropdown'
 // import NotificationDropdown from '../components/NotificationDropDown'
 // import AppsDropDown from '../components/AppsDropDown'
-import MaximizeScreen from "../components/MaximizeScreen";
-import ProfileDropDown from "../components/ProfileDropDown";
-import LogoBox from "../components/LogoBox";
+// import MaximizeScreen from "../components/MaximizeScreen";
+// import ProfileDropDown from "../components/ProfileDropDown";
+// import LogoBox from "../components/LogoBox";
 
 export interface NotificationItem {
   id: number;
@@ -208,59 +208,7 @@ const Topbar = () => {
 
   return (
     <React.Fragment>
-      <header className="app-header flex items-center px-4 gap-3.5">
-        <LogoBox />
-        {/* <div className='text-center text-white'>
-					Master Roster: MB SERI ALAM
-				</div> */}
-        {/* <button id="button-toggle-menu" className="nav-link p-2" onClick={handleLeftMenuCallBack}>
-					<span className="sr-only">Menu Toggle Button</span>
-					<span className="flex items-center justify-center">
-						<i className="ri-menu-2-fill text-2xl"></i>
-					</span>
-				</button> */}
-
-        {/* <div className="relative hidden lg:block">
-					<TopBarSearch />
-				</div> */}
-
-        <div className="relative ms-auto">{/* <LanguageDropdown /> */}</div>
-
-        {/* <div className="relative lg:flex hidden">
-					<NotificationDropdown notifications={notifications} />
-				</div> */}
-
-        {/* <div className="relative lg:flex hidden">
-					<AppsDropDown />
-				</div> */}
-
-        {/* <div className="flex">
-					<button type="button" className="nav-link p-2" onClick={handleRightSideBar}>
-						<span className="sr-only">Customization</span>
-						<span className="flex items-center justify-center">
-							<i className="ri-settings-3-line text-2xl"></i>
-						</span>
-					</button>
-				</div> */}
-
-        {/* <div className="lg:flex hidden">
-					<button id="light-dark-mode" type="button" className="nav-link p-2" onClick={toggleDarkMode}>
-						<span className="sr-only">Light/Dark Mode</span>
-						<span className="flex items-center justify-center">
-							<i className="ri-moon-line text-2xl text-white block dark:hidden"></i>
-							<i className="ri-sun-line text-2xl text-white hidden dark:block"></i>
-						</span>
-					</button>
-				</div> */}
-
-        <div className="md:flex hidden">
-          <MaximizeScreen />
-        </div>
-
-        <div className="relative">
-          <ProfileDropDown />
-        </div>
-      </header>
+      <div></div>
     </React.Fragment>
   );
 };

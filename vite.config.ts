@@ -1,11 +1,38 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { Proxy } from "@domoinc/ryuu-proxy";
+import manifest from "./public/manifest.json";
 
-// https://vitejs.dev/config/
+const config = { manifest };
+const proxy = new Proxy(config);
+
 export default defineConfig({
   base: "",
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: "ryuu-proxy",
+      configureServer(server) {
+        // Patch the `res` object to add `status` and `send` methods
+        server.middlewares.use((req, res, next) => {
+          (res as any).status = function (code: number) {
+            this.statusCode = code;
+            return this;
+          };
+          (res as any).send = function (body: any) {
+            this.setHeader("Content-Type", "text/plain");
+            this.end(body);
+          };
+          next();
+        });
+
+        // Use the proxy middleware
+        server.middlewares.use(proxy.express());
+      },
+    },
+  ],
   define: { "process.env": {} },
   resolve: {
     alias: {

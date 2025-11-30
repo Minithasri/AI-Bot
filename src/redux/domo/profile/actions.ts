@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { PROFILE_FAILURE, PROFILE_REQUEST, PROFILE_SUCCESS } from "./constant";
 import { profileResType } from "./types";
 

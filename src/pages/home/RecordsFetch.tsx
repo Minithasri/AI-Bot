@@ -107,36 +107,35 @@ const RecordsFetch: React.FC = () => {
       (r) => `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}` === key,
     );
   };
+  const fetchDatasetSavedRows = async () => {
+    try {
+      const res: any = await Domo.get(`/data/v1/modifiedData`);
+      setDataId(res); // loaded from backend
 
-  useEffect(() => {
-    const fetchDatasetSavedRows = async () => {
-      try {
-        const res: any = await Domo.get(`/data/v1/modifiedData`);
-        setDataId(res); // loaded from backend
+      setDataId((prev) => {
+        const updated = [...prev];
+        const key = (r: any) =>
+          `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
 
-        setDataId((prev) => {
-          const updated = [...prev];
-          const key = (r: any) =>
-            `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
-
-          // Only merge rows that were actually saved (res)
-          res.forEach((row: any) => {
-            const rowKey = key(row);
-            const index = updated.findIndex((r) => key(r) === rowKey);
-            if (index !== -1) updated[index] = row;
-            else updated.push(row);
-          });
-
-          return updated;
+        // Only merge rows that were actually saved (res)
+        res.forEach((row: any) => {
+          const rowKey = key(row);
+          const index = updated.findIndex((r) => key(r) === rowKey);
+          if (index !== -1) updated[index] = row;
+          else updated.push(row);
         });
 
-        console.log(res, "res------");
-        return res;
-      } catch (err) {
-        console.error("Dataset fetch failed", err);
-        return [];
-      }
-    };
+        return updated;
+      });
+
+      console.log(res, "res------");
+      return res;
+    } catch (err) {
+      console.error("Dataset fetch failed", err);
+      return [];
+    }
+  };
+  useEffect(() => {
     fetchDatasetSavedRows();
   }, []);
 
@@ -368,6 +367,8 @@ const RecordsFetch: React.FC = () => {
         });
         toast.success("Team data replaced!");
       }
+      // ★★★ IMPORTANT: refresh dataId from backend immediately after save
+      await fetchDatasetSavedRows();
 
       // -----------------------------------------
 
@@ -380,6 +381,7 @@ const RecordsFetch: React.FC = () => {
       console.error("❌ Upload error:", err);
       setError("Upload failed. Check console.");
       toast.dismiss();
+
       toast.error("Upload failed.");
     } finally {
       setIsSaving(false);
@@ -658,64 +660,74 @@ const RecordsFetch: React.FC = () => {
   //   setPendingRows(pending);
   // }, [data, dataId]);
 
-  useEffect(() => {
-    if (!Array.isArray(reduxData)) console.log(data, "datadata");
+ useEffect(() => {
+  // If reduxData is not ready yet → stop
+  if (!Array.isArray(reduxData)) return;
 
-    if (!Array.isArray(dataId) || dataId.length === 0) {
-      const merged = reduxData;
-      setFinalData(merged);
-      setUpdatedRows([]);
-      setPendingRows(merged);
-      return;
-    }
+  // If dataId is not ready yet → also stop
+  if (dataId !== null && dataId !== undefined && !Array.isArray(dataId)) return;
 
-    const key = (r: any) => `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
-
-    const dataIdMap = new Map(dataId.map((r) => [key(r), r]));
-    const merged: any[] = [];
-
-    for (const row of reduxData) {
-      const k = key(row);
-      if (dataIdMap.has(k)) {
-        merged.push({ ...row, ...dataIdMap.get(k) }); // take updated row
-        dataIdMap.delete(k);
-      } else {
-        merged.push(row);
-      }
-    }
-
-    merged.push(...dataIdMap.values());
-
-    // Final merged dataset
+  if (!Array.isArray(dataId) || dataId.length === 0) {
+    const merged = reduxData;
     setFinalData(merged);
-
-    const updated = merged.filter((row) => editableCols.some((c: any) => row[c] && row[c] !== ""));
-
-    const pending = merged.filter((row) => !editableCols.some((c: any) => row[c] && row[c] !== ""));
-
-    setUpdatedRows(updated);
-    setPendingRows(pending);
-  }, [reduxData, dataId]);
-  let totalRecords = 0;
-
-  if (!dataId || dataId.length === 0) {
-    // Case 1 → dataId empty
-    totalRecords = reduxData?.length || 0;
-  } else {
-    // Case 2 → dataId has records
-    totalRecords = pendingCount + updatedCount;
+    setUpdatedRows([]);
+    setPendingRows(merged);
+    return;
   }
+
+  const key = (r: any) =>
+    `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
+
+  const dataIdMap = new Map(dataId.map((r) => [key(r), r]));
+  const merged: any[] = [];
+
+  for (const row of reduxData) {
+    const k = key(row);
+    if (dataIdMap.has(k)) {
+      merged.push({ ...row, ...dataIdMap.get(k) });
+      dataIdMap.delete(k);
+    } else {
+      merged.push(row);
+    }
+  }
+
+  merged.push(...dataIdMap.values());
+
+  setFinalData(merged);
+
+  const updated = merged.filter((row) =>
+    editableCols.some((c: any) => row[c] && row[c] !== "")
+  );
+
+  const pending = merged.filter(
+    (row) => !editableCols.some((c: any) => row[c] && row[c] !== "")
+  );
+
+  setUpdatedRows(updated);
+  setPendingRows(pending);
+}, [reduxData, dataId]);
+
+
+  const safePendingRows = Array.isArray(pendingRows) ? pendingRows : [];
+  const safeUpdatedRows = Array.isArray(updatedRows) ? updatedRows : [];
+  const safeReduxData = Array.isArray(reduxData) ? reduxData : [];
+  const safeDataId = Array.isArray(dataId) ? dataId : [];
+
+  let totalRecords = 0;
   let pendingTabCount = 0;
   let updatedTabCount = 0;
 
-  if (!dataId || dataId.length === 0) {
-    // Case 1 → dataId empty → All rows are pending
-    pendingTabCount = reduxData?.length || 0;
+  // Case 1 → dataId empty
+  if (safeDataId.length === 0) {
+    totalRecords = safeReduxData.length;
+    pendingTabCount = safeReduxData.length;
     updatedTabCount = 0;
-  } else {
-    // Case 2 → dataId has records
-    pendingTabCount = pendingRows.length;
-    updatedTabCount = updatedRows.length;
+  }
+  // Case 2 → dataId has records
+  else {
+    totalRecords = safePendingRows.length + safeUpdatedRows.length;
+    pendingTabCount = safePendingRows.length;
+    updatedTabCount = safeUpdatedRows.length;
   }
 
   console.log(finalData, "asdfgh");
@@ -861,6 +873,6 @@ const RecordsFetch: React.FC = () => {
 };
 
 export default RecordsFetch;
-function isRowEdited(row: any): boolean {
+function isRowEdited(_row: any): boolean {
   throw new Error("Function not implemented.");
 }

@@ -236,10 +236,21 @@ const VoiceInput = () => {
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
+    let isBotSpeaking = false;
+
     // Text-to-Speech helper
     const speakResult = (text: string) => {
+      isBotSpeaking = true;
+      recognition.stop();
+
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.2;
+      
+      utterance.onend = () => {
+        isBotSpeaking = false;
+        if (isListening) recognition.start();
+      };
+      
       window.speechSynthesis.speak(utterance);
     };
 
@@ -326,7 +337,7 @@ const VoiceInput = () => {
     };
 
     recognition.onend = () => {
-      if (isListening) recognition.start();
+      if (isListening && !isBotSpeaking) recognition.start();
     };
 
     recognition.onerror = (e: any) => {
@@ -341,6 +352,7 @@ const VoiceInput = () => {
     if (isListening) recognition.start();
 
     return () => {
+      window.speechSynthesis.cancel();
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
         recognitionRef.current.stop();

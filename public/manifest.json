@@ -1,127 +1,32 @@
 {
   "name": "Reconciliation-amex",
   "version": "0.0.1",
-  "mapping": [
-    {
-      "dataSetId": "7f30de27-3ce1-4e4f-9e3b-d321e28a22e9",
-      "alias": "UnmatchedUnprocessedRecords",
-      "fields": [],
-      "dql": null
-    },
-    {
-      "dataSetId": "8a8f1f7c-8a34-4495-844b-aba35cbd84ee",
-      "alias": "modifiedData",
-      "fields": [],
-      "dql": null
-    },
-    {
-      "dataSetId": "dfd1f56e-7529-440c-a9c2-cb2c120cbc1f",
-      "alias": "consultant",
-      "fields": [],
-      "dql": null
-    }
-  ],
+
+  "mapping": {
+    "datasets": [
+      {
+        "dataSetId": "6ad4877b-9d2e-4abf-ac2b-dd1a58e74396",
+        "alias": "airplusandamex"
+      },
+      {
+        "dataSetId": "dfd1f56e-7529-440c-a9c2-cb2c120cbc1f",
+        "alias": "consultant"
+      }
+    ],
+    "collections": [
+      {
+        "id": "32333ad1-3561-4932-a4aa-e96af53674e5",
+        "name": "amex_airplus_updated_records",
+        "syncEnabled": true
+      }
+    ]
+  },
+
   "size": {
     "width": 1,
     "height": 1
   },
-  "packagesMapping": [
-    {
-      "name": "Append Multiple rows",
-      "alias": "append",
-      "packageId": "6d065069-0c5c-46a5-b254-d1d36d9780ce",
-      "parameters": [
-        {
-          "name": "dataset",
-          "displayName": "dataset",
-          "type": "dataset",
-          "value": null,
-          "nullable": false,
-          "isList": false,
-          "children": [],
-          "entitySubType": null,
-          "alias": "dataset"
-        },
-        {
-          "name": "rows",
-          "displayName": "rows",
-          "type": "text",
-          "value": null,
-          "nullable": false,
-          "isList": true,
-          "children": [],
-          "entitySubType": null,
-          "alias": "rows"
-        },
-        {
-          "name": "delimiter",
-          "displayName": "delimiter",
-          "type": "text",
-          "value": null,
-          "nullable": false,
-          "isList": false,
-          "children": [],
-          "entitySubType": null,
-          "alias": "delimiter"
-        }
-      ],
-      "output": {
-        "name": "Response",
-        "displayName": "Response",
-        "type": "object",
-        "value": null,
-        "nullable": true,
-        "isList": false,
-        "children": [],
-        "entitySubType": null,
-        "alias": "Response"
-      },
-      "version": "1.0.0",
-      "functionName": "appendMultipleRows"
-    },
-    {
-      "name": "Append Multiple rows",
-      "alias": "replace",
-      "packageId": "6d065069-0c5c-46a5-b254-d1d36d9780ce",
-      "parameters": [
-        {
-          "name": "datasetId",
-          "displayName": "datasetId",
-          "type": "dataset",
-          "value": null,
-          "nullable": false,
-          "isList": false,
-          "children": [],
-          "entitySubType": null,
-          "alias": "datasetId"
-        },
-        {
-          "name": "rows",
-          "displayName": "rows",
-          "type": "text",
-          "value": null,
-          "nullable": false,
-          "isList": true,
-          "children": [],
-          "entitySubType": null,
-          "alias": "rows"
-        }
-      ],
-      "output": {
-        "name": "Response",
-        "displayName": "Response",
-        "type": "object",
-        "value": null,
-        "nullable": true,
-        "isList": false,
-        "children": [],
-        "entitySubType": null,
-        "alias": "Response"
-      },
-      "version": "1.0.0",
-      "functionName": "replaceDataset"
-    }
-  ],
+
   "id": "a4f3119c-b5ec-438d-ad76-223a70341075",
   "proxyId": "4ffd4c0e-9d94-4b90-bac7-b4d43cc9cddf"
 }

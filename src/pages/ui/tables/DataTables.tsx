@@ -1,3 +1,5 @@
+/* eslint-disable prettier/prettier */
+/* eslint-disable react/react-in-jsx-scope */
 import { Grid } from "gridjs-react";
 
 // Components
@@ -23,12 +25,7 @@ const DataTables = () => {
               Build upon it with the options that follow, or with your own CSS as needed.
             </p>
 
-            <Grid
-              data={dataTableRecords}
-              pagination={{ enabled: true, limit: 5 }}
-              search={true}
-              sort={true}
-            />
+            <Grid data={dataTableRecords} pagination={{ limit: 5 }} search={true} sort={true} />
           </div>
         </div>
 
@@ -43,7 +40,7 @@ const DataTables = () => {
               Pagination can be enabled by setting <code>pagination: true</code>:
             </p>
 
-            <Grid data={dataTableRecords} pagination={{ enabled: true, limit: 5 }} />
+            <Grid data={dataTableRecords} pagination={{ limit: 5 }} />
           </div>
         </div>
 
@@ -59,7 +56,7 @@ const DataTables = () => {
               to enable the search plugin:
             </p>
 
-            <Grid data={dataTableRecords} pagination={{ enabled: true, limit: 5 }} search={true} />
+            <Grid data={dataTableRecords} pagination={{ limit: 5 }} search={true} />
           </div>
         </div>
 
@@ -74,7 +71,7 @@ const DataTables = () => {
               To enable sorting, simply add <code>sort: true</code> to your config:
             </p>
 
-            <Grid data={dataTableRecords} pagination={{ enabled: true, limit: 5 }} sort={true} />
+            <Grid data={dataTableRecords} pagination={{ limit: 5 }} sort={true} />
           </div>
         </div>
 
@@ -128,7 +125,7 @@ const DataTables = () => {
               columns={["id", "name", "email", "position", "company", "country"]}
               height="300px"
               fixedHeader={true}
-              pagination={{ enabled: true, limit: 10 }}
+              pagination={{ limit: 10 }}
             />
           </div>
         </div>
@@ -158,7 +155,7 @@ const DataTables = () => {
                 "country",
               ]}
               sort={true}
-              pagination={{ enabled: true, limit: 5 }}
+              pagination={{ limit: 5 }}
             />
           </div>
         </div>

@@ -8,7 +8,7 @@ import { staffReqmtListResType } from "./types";
 
 function* staffReqmtList() {
   try {
-    const response: staffReqmtListResType[] = yield call(domo.get, "/data/v1/UnmatchedUnprocessedRecords");
+    const response: staffReqmtListResType[] = yield call(domo.get, "/data/v1/airplusandamex");
     yield put(staffReqmtListSuccess(response));
   } catch (error) {
     yield put(staffReqmtListFailure("something went wrong on the list collection."));

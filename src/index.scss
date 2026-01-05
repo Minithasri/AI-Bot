@@ -8,51 +8,171 @@
 /* AG Grid styles */
 @import "ag-grid-community/styles/ag-grid.css";
 @import "ag-grid-community/styles/ag-theme-alpine.css";
-// .ag-theme-quartz .ag-row-odd {
-//   background-color: #fafafa;
-// }
-// /* Hover zoom effect */
-// .ag-theme-quartz .ag-row:hover {
-//   transform: scale(1.002);
-//   transition: transform 0.1s ease-in-out;
-// }
 
-// /* Rounded border */
-// .ag-root-wrapper {
-//   border-radius: 5px;
-//   overflow: hidden;
-// }
+/* -------------------------
+   THEME & ROW STYLING
+------------------------- */
 
-// /* Horizontal scrollbar styles */
-// .ag-center-cols-container {
-//   scrollbar-width: thin;
-//   scrollbar-color: #d1d5db transparent;
-// }
-
-// .ag-center-cols-container .ag-cell:last-child {
-//   border-right: none;
-// }
-
-// /*  remove vertical lines from headers */
-// .ag-header-cell {
-//   border-right: none !important;
-// }
-// /* Remove floating filter input box */
-// .ag-theme-alpine .ag-floating-filter-input,
-// .ag-theme-quartz .ag-floating-filter-input {
-//   display: none !important;
-// }
-/* Hide the floating filter icon inside column header */
-.ag-theme-quartz .ag-floating-filter-button {
-  display: none !important;
+/* Odd row background */
+.ag-theme-quartz .ag-row-odd {
+  background-color: #fdeee9;
 }
 
-/* Hide the floating filter container */
-.ag-theme-quartz .ag-floating-filter {
-  display: none !important;
+/* Hover zoom effect */
+.ag-theme-quartz .ag-row:hover {
+  transform: scale(1.002);
+  transition: transform 0.1s ease-in-out;
+  background-color: #fdeee9 !important;
 }
 
-/* Prevent header spacing caused by hidden filters */
-.ag-theme-quartz .ag-header-cell {
-  padding-bottom: 4px !important;
+/* Rounded border for grid wrapper */
+.ag-root-wrapper {
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+/* Horizontal scrollbar */
+.ag-center-cols-container {
+  scrollbar-width: thin;
+  scrollbar-color: #fdeee9 transparent;
+}
+
+.ag-center-cols-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.ag-center-cols-container::-webkit-scrollbar-thumb {
+  background-color: #fdeee9;
+  border-radius: 2px;
+}
+
+/* -------------------------
+   HEADER STYLING
+------------------------- */
+
+.ag-header {
+  background-color: #212e62 !important;
+  color: white !important;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ag-header-cell,
+.ag-header-cell-text,
+.ag-header-cell-label {
+  color: white !important;
+  fill: white !important;
+}
+
+/* Default filter icon color = white */
+.ag-theme-alpine .ag-icon.ag-icon-filter {
+  filter: brightness(10) !important;  /* makes mask white */
+}
+
+/* Filter applied = blue */
+.ag-theme-alpine .ag-header-cell-filtered .ag-icon.ag-icon-filter {
+  filter: none !important;
+ color: #2196f3 !important; 
+  mask-size: contain !important;
+}
+
+
+.ag-header-icon,
+.ag-icon {
+  width: 12px !important;
+  height: 12px !important;
+  font-size: 12px !important;
+  margin: 0 2px !important;
+  padding: 0 !important;
+}
+
+.ag-sort-ascending-icon,
+.ag-sort-descending-icon,
+.ag-sort-none-icon {
+  width: 12px !important;
+  height: 12px !important;
+  font-size: 12px !important;
+  fill: white !important;
+}
+
+.ag-header-cell-label {
+  gap: 4px !important; /* space between text + icons */
+}
+
+/* Remove vertical lines in header */
+.ag-header-cell {
+  border-right: none !important;
+}
+
+/* -------------------------
+   CELL & ROW STYLING
+------------------------- */
+
+/* Vertical lines in cells */
+.ag-center-cols-container .ag-cell {
+  border-right: 1px solid #fdeee9;
+}
+
+.ag-center-cols-container .ag-cell:last-child {
+  border-right: none;
+}
+
+/* Copyable cells */
+.copyable-cell {
+  cursor: text;
+  user-select: text !important;
+}
+
+/* -------------------------
+   FILTER STYLING
+------------------------- */
+
+/* Filter dropdown scroll */
+.ag-filter-body {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+/* Custom dropdown list */
+.ag-select-list {
+  max-height: 140px !important;
+  overflow-y: auto !important;
+  padding-left: 6px !important;
+}
+
+.ag-select-list .ag-select-list-item {
+  padding-left: 0 !important;
+}
+
+/* Picker field */
+.ag-select {
+  background: transparent !important;
+  border: none !important;
+  padding-left: 0 !important;
+}
+
+/* Show arrow without hiding text */
+.ag-picker-field-wrapper::after {
+  content: "▼";
+  font-size: 10px;
+  color: #555;
+  margin-left: 4px;
+}
+
+/* Ensure selected value is visible */
+.ag-picker-field-display {
+  visibility: visible !important;
+}
+.ag-cell-inline-editing {
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 !important;
+  height: 100% !important;
+}
+
+.ag-cell-edit-wrapper {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  width: 100%;
 }

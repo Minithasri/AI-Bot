@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable max-lines */
 import { ApexOptions } from "apexcharts";
-
 const dataSeries = [
   [
     {
@@ -1866,11 +1868,9 @@ export const zoomableTimeseriesOpts: ApexOptions = {
   },
   fill: {
     gradient: {
-      colorStops: [0, 70, 80, 100],
-      type: "gradient",
-      shade: "#f1f3fa",
+      type: "vertical",
+      shade: "light",
       gradientToColors: ["#f1f3fa"],
-      // enabled: true,
       shadeIntensity: 1,
       inverseColors: true,
       opacityFrom: 0.5,
@@ -1970,7 +1970,6 @@ export const lineChartwithAnnotationOpts: ApexOptions = {
           size: 8,
           fillColor: "#fff",
           strokeColor: "#fa5c7c",
-          radius: 2,
         },
         label: {
           borderColor: "#fa5c7c",

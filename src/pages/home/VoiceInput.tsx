@@ -241,16 +241,22 @@ const VoiceInput = () => {
     // Text-to-Speech helper
     const speakResult = (text: string) => {
       isBotSpeaking = true;
-      recognition.stop();
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.2;
       
       utterance.onend = () => {
-        isBotSpeaking = false;
-        if (isListening) recognition.start();
+        // Add a small delay to ensure we don't pick up the tail end of the TTS
+        setTimeout(() => {
+          isBotSpeaking = false;
+        }, 500);
       };
       
+      utterance.onerror = () => {
+         isBotSpeaking = false;
+      };
+
+      window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     };
 
@@ -260,6 +266,8 @@ const VoiceInput = () => {
     };
 
     recognition.onresult = (event: any) => {
+      if (isBotSpeaking) return;
+
       let finalStr = "";
       let interimStr = "";
 
@@ -337,7 +345,7 @@ const VoiceInput = () => {
     };
 
     recognition.onend = () => {
-      if (isListening && !isBotSpeaking) recognition.start();
+      if (isListening) recognition.start();
     };
 
     recognition.onerror = (e: any) => {

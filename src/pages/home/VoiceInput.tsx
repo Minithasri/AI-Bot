@@ -22,6 +22,8 @@ const VoiceInput = () => {
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
   const isBotSpeakingRef = useRef(false);
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const accumulatedTranscriptRef = useRef("");
 
   // Refs to keep track of state without triggering re-runs of the recognition effect
   const foundIndicesRef = useRef<number[]>([]);
@@ -234,76 +236,99 @@ const VoiceInput = () => {
       const botKeywords = ["correct answer", "already answered", "try another keyword"];
       if (botKeywords.some(kw => lowerFinal.includes(kw))) return;
 
-      if (interimStr) setInterimTranscript(interimStr);
+      if (interimStr) {
+        setInterimTranscript(interimStr);
+        // Reset timer while user is still speaking
+        if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
+      }
 
       if (finalStr) {
-        setTranscript((prev) => (prev + " " + finalStr).trim());
+        const trimmedFinal = finalStr.trim();
+        const currentLower = accumulatedTranscriptRef.current.toLowerCase();
+        const incomingLower = trimmedFinal.toLowerCase();
+
+        // Mobile Fix: Only append if this specific phrase isn't already the tail of our buffer
+        if (!currentLower.endsWith(incomingLower)) {
+          setTranscript((prev) => (prev + " " + trimmedFinal).trim());
+          accumulatedTranscriptRef.current = (accumulatedTranscriptRef.current + " " + trimmedFinal).trim();
+        }
+        
         setInterimTranscript("");
 
-        const stopWords = new Set([
-          "a", "an", "the", "i", "by", "is", "am", "are", "was", "were", "be", "been", "being",
-          "have", "has", "had", "do", "does", "did", "to", "for", "of", "with", "at", "on", "in",
-          "and", "but", "or", "even", "when", "how", "why", "who", "which", "my", "me", "your",
-          "our", "it", "this", "that", "these", "those", "can", "could", "will", "would", "shall",
-          "should", "show", "showed", "showing", "helps", "help", "stay", "stayed", "staying",
-          "tasks", "become", "feel", "feeling", "manage", "use", "using", "allows", "come",
-          "important", "importance", "like", "actually", "just", "very", "more", "now", "here"
-        ]);
+        // Reset timer on every final segment
+        if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
 
-        const sentences = finalStr.split(/[.!?]+/).filter((s) => s.trim().length > 0);
-        let matchedIndex = -1;
-        let isAlreadyFound = false;
-        let matchedSomething = false;
+        processingTimeoutRef.current = setTimeout(() => {
+          if (isBotSpeakingRef.current || !accumulatedTranscriptRef.current) return;
 
-        for (const sentence of sentences) {
-          const userMeaningfulWords = sentence
-            .toLowerCase()
-            .trim()
-            .split(/[\s,.;!?]+/)
-            .filter((w) => w.length >= 2 && !stopWords.has(w));
+          const textToProcess = accumulatedTranscriptRef.current;
+          accumulatedTranscriptRef.current = "";
 
-          if (userMeaningfulWords.length === 0) continue;
+          const stopWords = new Set([
+            "a", "an", "the", "i", "by", "is", "am", "are", "was", "were", "be", "been", "being",
+            "have", "has", "had", "do", "does", "did", "to", "for", "of", "with", "at", "on", "in",
+            "and", "but", "or", "even", "when", "how", "why", "who", "which", "my", "me", "your",
+            "our", "it", "this", "that", "these", "those", "can", "could", "will", "would", "shall",
+            "should", "show", "showed", "showing", "helps", "help", "stay", "stayed", "staying",
+            "tasks", "become", "feel", "feeling", "manage", "use", "using", "allows", "come",
+            "important", "importance", "like", "actually", "just", "very", "more", "now", "here"
+          ]);
 
-          let bestScore = 0;
-          let bestIndexForMatch = -1;
+          const sentences = textToProcess.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+          let matchedIndex = -1;
+          let isAlreadyFound = false;
+          let matchedSomething = false;
 
-          for (let i = 0; i < skillCriteria.length; i++) {
-            const item = skillCriteria[i];
-            const scores = [
-              calculateMatchScore(userMeaningfulWords, item.answer),
-              ...item.similar.map(s => calculateMatchScore(userMeaningfulWords, s))
-            ];
-            const maxScore = Math.max(...scores);
+          for (const sentence of sentences) {
+            const userMeaningfulWords = sentence
+              .toLowerCase()
+              .trim()
+              .split(/[\s,.;!?]+/)
+              .filter((w) => w.length >= 2 && !stopWords.has(w));
 
-            if (maxScore > 0) {
-              matchedSomething = true;
-              if (foundIndicesRef.current.includes(i)) {
-                isAlreadyFound = true;
-              } else if (maxScore > bestScore) {
-                bestScore = maxScore;
-                bestIndexForMatch = i;
+            if (userMeaningfulWords.length === 0) continue;
+
+            let bestScore = 0;
+            let bestIndexForMatch = -1;
+
+            for (let i = 0; i < skillCriteria.length; i++) {
+              const item = skillCriteria[i];
+              const scores = [
+                calculateMatchScore(userMeaningfulWords, item.answer),
+                ...item.similar.map(s => calculateMatchScore(userMeaningfulWords, s))
+              ];
+              const maxScore = Math.max(...scores);
+
+              if (maxScore > 0) {
+                matchedSomething = true;
+                if (foundIndicesRef.current.includes(i)) {
+                  isAlreadyFound = true;
+                } else if (maxScore > bestScore) {
+                  bestScore = maxScore;
+                  bestIndexForMatch = i;
+                }
               }
             }
+            if (bestIndexForMatch !== -1) {
+              matchedIndex = bestIndexForMatch;
+              break; 
+            }
           }
-          if (bestIndexForMatch !== -1) {
-            matchedIndex = bestIndexForMatch;
-            break; 
-          }
-        }
 
-        if (matchedIndex !== -1) {
-          const name = skillCriteria[matchedIndex].answer;
-          setFoundIndices((prev) => [...new Set([...prev, matchedIndex])]);
-          speakResult(`${name} is correct answer`);
-          setFeedback({ text: `Matched: ${name}`, status: "correct" });
-        } else if (isAlreadyFound) {
-          speakResult(`That was already answered`);
-          setFeedback({ text: `Already answered`, status: "wrong" });
-          setTimeout(() => setFeedback(prev => prev.status === "wrong" ? { text: "", status: null } : prev), 3000);
-        } else if (!matchedSomething) {
-          setFeedback({ text: `Try another keyword`, status: "wrong" });
-          setTimeout(() => setFeedback(prev => prev.status === "wrong" ? { text: "", status: null } : prev), 3000);
-        }
+          if (matchedIndex !== -1) {
+            const name = skillCriteria[matchedIndex].answer;
+            setFoundIndices((prev) => [...new Set([...prev, matchedIndex])]);
+            speakResult(`${name} is correct answer`);
+            setFeedback({ text: `Matched: ${name}`, status: "correct" });
+          } else if (isAlreadyFound) {
+            speakResult(`That was already answered`);
+            setFeedback({ text: `Already answered`, status: "wrong" });
+            setTimeout(() => setFeedback(prev => prev.status === "wrong" ? { text: "", status: null } : prev), 3000);
+          } else if (!matchedSomething) {
+            setFeedback({ text: `Try another keyword`, status: "wrong" });
+            setTimeout(() => setFeedback(prev => prev.status === "wrong" ? { text: "", status: null } : prev), 3000);
+          }
+        }, 1000); // Wait for 1 second of silence
       }
     };
 
@@ -319,6 +344,7 @@ const VoiceInput = () => {
 
     return () => {
       window.speechSynthesis.cancel();
+      if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
       recognition.stop();
     };
   }, [isListening, skillCriteria]);
@@ -327,11 +353,14 @@ const VoiceInput = () => {
     if (isListening) {
       setIsListening(false);
       recognitionRef.current?.stop();
+      if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
+      accumulatedTranscriptRef.current = "";
     } else {
       setIsListening(true);
       setTranscript("");
       setInterimTranscript("");
       setFeedback({ text: "", status: null });
+      accumulatedTranscriptRef.current = "";
     }
   };
 
@@ -341,6 +370,8 @@ const VoiceInput = () => {
     setInterimTranscript("");
     setFeedback({ text: "", status: null });
     setIsListening(false);
+    if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
+    accumulatedTranscriptRef.current = "";
   };
 
   return (

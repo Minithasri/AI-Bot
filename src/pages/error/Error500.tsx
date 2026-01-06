@@ -7,7 +7,7 @@ import { PageBreadcrumb } from "../../components";
 import AuthContainer from "../../components/AuthPageLayout/AuthContainer";
 
 //image
-import logo from "@/assets/images/test-logo.png";
+import logo from "@/assets/images/only.png";
 import startMan from "@/assets/images/svg/startman.svg";
 
 const Error500 = () => {

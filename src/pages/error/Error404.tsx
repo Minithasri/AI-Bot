@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 //image
-import logo from "@/assets/images/test-logo.png";
+import logo from "@/assets/images/only.png";
 
 // components
 import AuthContainer from "../../components/AuthPageLayout/AuthContainer";

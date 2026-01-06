@@ -1,3 +1,4 @@
+/* eslint-disable no-empty */
 /* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -14,7 +15,7 @@ import {
   Timer,
 } from "lucide-react";
 
-import image from "../../assets/images/only.png"
+import image from "../../assets/images/only.png";
 const SpeechRecognition =
   (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -24,6 +25,7 @@ const VoiceInput = () => {
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
   const recognitionRef = useRef<any>(null);
+  const isBotSpeakingRef = useRef(false);
 
   // Refs to keep track of state without triggering re-runs of the recognition effect
   const foundIndicesRef = useRef<number[]>([]);
@@ -43,26 +45,42 @@ const VoiceInput = () => {
     transcriptRef.current = transcript;
   }, [transcript]);
 
-  // Fuzzy matching helper (Word-overlap based for sentence support)
-  const isSimiliarEnough = (input: string, target: string) => {
-    const s = input.toLowerCase().trim();
-    const t = target.toLowerCase().trim();
+  // Word-to-Keyword matching engine (Returns a score based on Core words)
+  const calculateMatchScore = (inputWords: string[], target: string) => {
+    const t = target.toLowerCase().replace(/[.,:!?]/g, "").trim();
+    
+    const genericWords = new Set([
+      "thinking", "learning", "ability", "skills", "sense", "mindset", 
+      "conduct", "etiquette", "attitude", "level", "basic", "quality",
+      "oriented", "orientation", "thought", "power", "staying", "clear",
+      "fast", "quick", "well", "good", "better", "best", "personality"
+    ]);
 
-    // Direct match or substring
-    if (s.includes(t) || t.includes(s)) return true;
+    const stopWords = new Set(["a", "an", "the", "i", "by", "is", "of", "with", "at", "on", "in", "and", "but", "or", "my", "me", "it", "this", "that", "for", "are", "they", "their", "be", "been", "showing", "show"]);
+    
+    const tWords = t.split(/\s+/).filter((w) => w.length >= 2 && !stopWords.has(w));
+    if (tWords.length === 0) return 0;
 
-    const sWords = s.split(/\s+/).filter((w) => w.length > 2);
-    const tWords = t.split(/\s+/).filter((w) => w.length > 2);
-
-    if (tWords.length === 0) return false;
-
-    // Check how many target words are represented in the input sentence
-    const matches = tWords.filter((tw) =>
-      sWords.some((sw) => sw.includes(tw) || tw.includes(sw)),
+    const matchedTWords = tWords.filter((tw) =>
+      inputWords.some((iw) => iw === tw || (iw.length > 5 && tw.length > 5 && (iw.includes(tw) || tw.includes(iw))))
     );
 
-    const score = matches.length / tWords.length;
-    return score >= 0.8;
+    if (matchedTWords.length === 0) return 0;
+
+    const coreMatches = matchedTWords.filter(mw => !genericWords.has(mw)).length;
+    const totalMatches = matchedTWords.length;
+
+    // Logic: 
+    // - Core words are worth 10 points
+    // - Generic words are worth 1 point ONLY if a core word also matches
+    // - If ONLY generic words match, they must match the whole target to get even 1 point
+    if (coreMatches > 0) {
+      return (coreMatches * 10) + (totalMatches - coreMatches);
+    } else if (totalMatches === tWords.length) {
+      return 1;
+    }
+    
+    return 0;
   };
 
   const question = "What skills matter more than grades for data & AI freshers?";
@@ -73,49 +91,35 @@ const VoiceInput = () => {
         answer: "Learning Agility",
         similar: [
           "adaptability",
-          "continuous learning",
-          "growth mindset",
-          "learn fast",
           "willingness to learn",
-          "quick learner",
-          "rapid learning",
-          "flexible learner",
-          "learning mindset",
-          "agile learner",
-          "keep learning",
-          "adaptive learning",
+          "growth mindset",
+          "fast learner",
+          "continuous learning ability",
+          "agile learning",
         ],
       },
       {
         answer: "Problem Thinking",
         similar: [
+          "analytical thinking",
           "critical thinking",
-          "logical reasoning",
-          "analytical",
           "structured thinking",
+          "solution orientation",
+          "logical reasoning",
           "problem solving",
-          "logical thinking",
-          "rational thinking",
-          "analysis skills",
-          "cognitive thinking",
-          "troubleshooting",
-          "solution oriented",
+          "analytics",
+          "analytical",
         ],
       },
       {
         answer: "Communication Clarity",
         similar: [
-          "articulation",
-          "expression",
-          "clarity",
-          "speaking",
-          "presentation",
-          "verbal skills",
+          "articulation skills",
           "effective communication",
-          "clear speaking",
-          "talk well",
-          "dialogue skills",
-          "interpersonal communication",
+          "expression ability",
+          "presentation skills",
+          "clarity of thought",
+          "communication",
         ],
       },
       {
@@ -124,103 +128,77 @@ const VoiceInput = () => {
           "accountability",
           "responsibility",
           "initiative",
-          "proactive",
-          "self driven",
-          "taking charge",
-          "responsible attitude",
+          "proactiveness",
           "ownership",
-          "self managed",
-          "independent worker",
-          "taking lead",
+          "self driven attitude",
         ],
       },
       {
         answer: "Comfort with Ambiguity",
         similar: [
+          "tolerance for uncertainty",
+          "tolerance",
           "uncertainty",
-          "flexible",
-          "changing environments",
-          "handling unknown",
-          "dealing with change",
-          "adaptable to change",
-          "thriving in chaos",
-          "managing uncertainty",
-          "flexible mindset",
+          "ambiguity",
+          "adaptability to change",
+          "flexibility",
+          "open ended thinking",
+          "situational handling",
         ],
       },
       {
-        answer: "Collaboration",
+        answer: "Collaboration & Team Sense",
         similar: [
           "teamwork",
+          "interpersonal skills",
           "people skills",
-          "empathy",
-          "cooperation",
-          "team player",
-          "working together",
-          "joint effort",
-          "collective work",
-          "group work",
-          "cooperative",
-          "synergy",
+          "cross functional collaboration",
+          "functional collaboration",
+          "cooperative attitude",
         ],
       },
       {
-        answer: "Ethics & Trust",
+        answer: "Ethics & Trustworthiness",
         similar: [
           "integrity",
-          "trustworthy",
-          "professionalism",
-          "honesty",
-          "ethical",
-          "moral",
-          "reliable",
+          "professional ethics",
           "reliability",
-          "faithful",
-          "conscientious",
-          "moral values",
+          "moral responsibility",
+          "credibility",
+          "ethics",
+          "trust",
         ],
       },
       {
-        answer: "Business Curiosity",
+        answer: "Curiosity About Business",
         similar: [
-          "acumen",
+          "business acumen",
           "commercial awareness",
-          "business sense",
-          "curious about business",
-          "market awareness",
-          "business logic",
-          "understanding business",
-          "enterprise thinking",
-          "strategy awareness",
+          "commercial",
+          "customer orientation",
+          "value thinking",
+          "outcome orientation",
         ],
       },
       {
         answer: "Resilience & Grit",
         similar: [
           "perseverance",
-          "toughness",
-          "hard work",
-          "persistent",
-          "determination",
-          "endurance",
-          "staying power",
-          "mental strength",
-          "resolve",
+          "mental toughness",
+          "emotional strength",
+          "stress management",
           "persistence",
         ],
       },
       {
-        answer: "Professionalism",
+        answer: "Basic Professionalism",
         similar: [
-          "discipline",
-          "etiquette",
-          "work ethic",
-          "conduct",
+          "workplace etiquette",
+          "workplace",
           "professional conduct",
-          "punctuality",
-          "workplace manners",
-          "office etiquette",
-          "corporate behavior",
+          "discipline",
+          "reliability",
+          "Work Ethics",
         ],
       },
     ],
@@ -236,27 +214,25 @@ const VoiceInput = () => {
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
-    let isBotSpeaking = false;
-
     // Text-to-Speech helper
     const speakResult = (text: string) => {
-      isBotSpeaking = true;
+      isBotSpeakingRef.current = true;
+      window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.2;
-      
+      utterance.rate = 1.1;
+
       utterance.onend = () => {
-        // Add a small delay to ensure we don't pick up the tail end of the TTS
+        // Longer cooldown to allow audio buffers to clear
         setTimeout(() => {
-          isBotSpeaking = false;
-        }, 500);
-      };
-      
-      utterance.onerror = () => {
-         isBotSpeaking = false;
+          isBotSpeakingRef.current = false;
+        }, 1000);
       };
 
-      window.speechSynthesis.cancel();
+      utterance.onerror = () => {
+        isBotSpeakingRef.current = false;
+      };
+
       window.speechSynthesis.speak(utterance);
     };
 
@@ -266,7 +242,7 @@ const VoiceInput = () => {
     };
 
     recognition.onresult = (event: any) => {
-      if (isBotSpeaking) return;
+      if (isBotSpeakingRef.current) return;
 
       let finalStr = "";
       let interimStr = "";
@@ -276,65 +252,103 @@ const VoiceInput = () => {
         else interimStr += event.results[i][0].transcript;
       }
 
+      const lowerFinal = finalStr.toLowerCase();
+      // Heuristic: If the input looks like the bot's own feedback, ignore it
+      const botKeywords = [
+        "correct answer",
+        "already answered",
+        "try another keyword",
+        "found:",
+        "matched:",
+      ];
+      if (botKeywords.some((kw) => lowerFinal.includes(kw))) {
+        return;
+      }
+
       if (interimStr) {
         setInterimTranscript(interimStr);
       }
 
       if (finalStr) {
-        const cleanedPhrase = finalStr.trim().toLowerCase();
         setTranscript((prev) => (prev + " " + finalStr).trim());
         setInterimTranscript("");
 
-        // Check for incomplete phrases first (only if the whole transcript is just one of these)
-        const incompletePhrases = ["values", "sense", "awareness", "clarity", "mindset"];
-        if (incompletePhrases.includes(cleanedPhrase)) {
-          speakResult("Please complete the word");
-          setFeedback({ text: `"${cleanedPhrase}" - Please complete the word`, status: "wrong" });
-          setTimeout(
-            () =>
-              setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
-            3000,
-          );
-          return;
-        }
+        // 1. Process User Sentence into meaningful keywords
+        const stopWords = new Set([
+          "a", "an", "the", "i", "by", "is", "am", "are", "was", "were", "be", "been", "being",
+          "have", "has", "had", "do", "does", "did", "to", "for", "of", "with", "at", "on", "in",
+          "and", "but", "or", "even", "when", "how", "why", "who", "which", "my", "me", "your",
+          "our", "it", "this", "that", "these", "those", "can", "could", "will", "would", "shall",
+          "should", "show", "showed", "showing", "helps", "help", "stay", "stayed", "staying",
+          "tasks", "become", "feel", "feeling", "manage", "use", "using", "allows", "come",
+          "important", "importance", "like", "actually", "just", "very", "more", "now", "here"
+        ]);
 
-        const newMatchIndices: number[] = [];
-        const alreadyFoundNames: string[] = [];
+        const cleanedPhrase = finalStr.trim().toLowerCase();
+        const sentences = finalStr.split(/[.!?]+/).filter((s) => s.trim().length > 0);
 
-        skillCriteria.forEach((item, index) => {
-          const isMatch =
-            isSimiliarEnough(cleanedPhrase, item.answer) ||
-            item.similar.some((s) => isSimiliarEnough(cleanedPhrase, s));
+        // 2. Process each sentence to find exactly ONE new match
+        let matchedIndex = -1;
+        let isAlreadyFound = false;
+        let matchedSomething = false;
 
-          if (isMatch) {
-            if (foundIndicesRef.current.includes(index)) {
-              alreadyFoundNames.push(item.answer);
-            } else {
-              newMatchIndices.push(index);
+        for (const sentence of sentences) {
+          const userMeaningfulWords = sentence
+            .toLowerCase()
+            .trim()
+            .split(/[\s,.;!?]+/)
+            .filter((w) => w.length >= 2 && !stopWords.has(w)); // Length 2 for words like "AI"
+
+          if (userMeaningfulWords.length === 0) continue;
+
+          let bestScore = 0;
+          let bestIndexForMatch = -1;
+
+          for (let i = 0; i < skillCriteria.length; i++) {
+            const item = skillCriteria[i];
+            
+            // Calculate scores for answer and all similar phrases
+            const scores = [
+              calculateMatchScore(userMeaningfulWords, item.answer),
+              ...item.similar.map(s => calculateMatchScore(userMeaningfulWords, s))
+            ];
+            
+            const maxScore = Math.max(...scores);
+
+            if (maxScore > 0) {
+              matchedSomething = true;
+              if (foundIndicesRef.current.includes(i)) {
+                isAlreadyFound = true;
+              } else if (maxScore > bestScore) {
+                bestScore = maxScore;
+                bestIndexForMatch = i;
+              }
             }
           }
-        });
+          
+          if (bestIndexForMatch !== -1) {
+            matchedIndex = bestIndexForMatch;
+            break; 
+          }
+        }
 
-        if (newMatchIndices.length > 0) {
-          // Identify all new skills found in this sentence
-          const matchedNames = newMatchIndices.map((idx) => skillCriteria[idx].answer);
-          setFoundIndices((prev) => [...new Set([...prev, ...newMatchIndices])]);
-
-          speakResult(
-            `Correct! ${newMatchIndices.length > 1 ? "Found: " : ""}${matchedNames.join(", ")}`,
-          );
-          setFeedback({ text: `Matched: ${matchedNames.join(", ")}`, status: "correct" });
-        } else if (alreadyFoundNames.length > 0) {
-          const name = alreadyFoundNames[0];
-          speakResult(`${name} was already answered`);
-          setFeedback({ text: `"${name}" - Already answered`, status: "wrong" });
+        if (matchedIndex !== -1) {
+          const name = skillCriteria[matchedIndex].answer;
+          setFoundIndices((prev) => [...new Set([...prev, matchedIndex])]);
+          speakResult(`${name} is correct answer`);
+          setFeedback({ text: `Matched: ${name}`, status: "correct" });
+        } else if (isAlreadyFound) {
+          // Only report "already answered" if we didn't find ANY new matches in the whole chunk
+          speakResult(`That was already answered`);
+          setFeedback({ text: `Already answered`, status: "wrong" });
           setTimeout(
             () =>
               setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
             3000,
           );
-        } else {
-          setFeedback({ text: `"${cleanedPhrase}" - Try another keyword`, status: "wrong" });
+        } else if (!matchedSomething) {
+          // Optional: handle "Try another keyword" only if we didn't match anything at all
+          setFeedback({ text: `Try another keyword`, status: "wrong" });
           setTimeout(
             () =>
               setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
@@ -345,7 +359,17 @@ const VoiceInput = () => {
     };
 
     recognition.onend = () => {
-      if (isListening) recognition.start();
+      if (isListening) {
+        // If we were speaking, the restart will happen via onend/timeout,
+        // but this acts as a backup to keep the mic alive.
+        setTimeout(() => {
+          if (isListening && !isBotSpeakingRef.current) {
+            try {
+              recognition.start();
+            } catch (e) {}
+          }
+        }, 300);
+      }
     };
 
     recognition.onerror = (e: any) => {
@@ -461,7 +485,7 @@ const VoiceInput = () => {
         {/* Victory Message */}
         {foundIndices.length === 10 && (
           <div className="p-4 bg-[#FD7E14] text-white rounded-2xl text-center text-sm md:text-base font-bold animate-bounce shadow-lg">
-            CONGRATULATIONS! You found all 10 skills! 🎉
+            CONGRATULATIONS!🎉
           </div>
         )}
 
@@ -486,7 +510,6 @@ const VoiceInput = () => {
                 <Mic size={24} />
               )}
             </button>
-            
           </div>
           {/* Transcript Area */}
           <div className="flex-1 bg-white rounded-2xl md:rounded-3xl p-4 md:p-5 shadow-inner border border-slate-100 min-h-[70px] flex items-center">
@@ -497,12 +520,12 @@ const VoiceInput = () => {
             </p>
           </div>
           <button
-              onClick={resetGame}
-              className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-white border border-slate-100 text-slate-400 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors"
-              title="Reset"
-            >
-              <RotateCcw size={18} />
-            </button>
+            onClick={resetGame}
+            className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-white border border-slate-100 text-slate-400 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors"
+            title="Reset"
+          >
+            <RotateCcw size={18} />
+          </button>
         </div>
       </div>
     </div>

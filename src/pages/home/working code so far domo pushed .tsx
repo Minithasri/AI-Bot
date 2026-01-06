@@ -1,1031 +1,514 @@
-/* eslint-disable no-duplicate-imports */
-/* eslint-disable max-lines */
-/* eslint-disable react/display-name */
-/* eslint-disable react/prop-types */
-/* eslint-disable react/no-unknown-property */
+/* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable prettier/prettier */
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useMemo,
-  useCallback,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
-import { AgGridReact } from "ag-grid-react";
-import Domo from "ryuu.js";
-import { useDispatch, useSelector } from "react-redux";
-import { staffReqmtListRequest } from "@/redux/domo/staff-data/actions";
-import { RootState } from "@/redux/store";
-import toast from "react-hot-toast";
-import Papa from "papaparse";
-import { MdArrowDropDown } from "react-icons/md";
-import { FiSearch } from "react-icons/fi";
-import { FaEdit } from "react-icons/fa";
-import { GridApi } from "ag-grid-community";
-// import { AgGridReact } from "ag-grid-react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import {
+  Mic,
+  MicOff,
+  CheckCircle,
+  RotateCcw,
+  Sparkles,
+  BrainCircuit,
+  Trophy,
+  Timer,
+} from "lucide-react";
 
-import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
+import image from "../../assets/images/only.png"
+const SpeechRecognition =
+  (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-//  ADD THESE 2 LINES
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
+const VoiceInput = () => {
+  const [isListening, setIsListening] = useState(false);
+  const [foundIndices, setFoundIndices] = useState<number[]>([]);
+  const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
+  const isBotSpeakingRef = useRef(false);
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+  // Refs to keep track of state without triggering re-runs of the recognition effect
+  const foundIndicesRef = useRef<number[]>([]);
+  const transcriptRef = useRef("");
 
-const team_OPTIONS = ["Blue", "Purple", "Orange", "Pink", "Yellow", "Events", "Other"];
-const reasons_OPTIONS = [
-  "In ClientMajic, not posted",
-  "Not invoiced",
-  "Incorrect confirmation",
-  "Incorrect cost",
-  "Incorrect name on card",
-  "Other",
-];
+  // State for immediate feedback
+  const [feedback, setFeedback] = useState<{ text: string; status: "correct" | "wrong" | null }>({
+    text: "",
+    status: null,
+  });
 
-const LoadingSpinner = () => (
-  <div className="flex justify-center mt-16">
-    <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-[#212e62]"></div>
-  </div>
-);
+  useEffect(() => {
+    foundIndicesRef.current = foundIndices;
+  }, [foundIndices]);
 
-/* ---------------- Simple Modal Component ---------------- */
-const ConfirmModal: React.FC<{
-  open: boolean;
-  title?: string;
-  message: string;
-  onConfirm: () => void;
-  onClose: () => void;
-}> = ({ open, title = "Confirm", message, onConfirm, onClose }) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black opacity-40" onClick={onClose} aria-hidden />
-      <div className="relative bg-white rounded-lg shadow-xl max-w-lg w-full p-6 z-10">
-        <h3 className="text-lg font-semibold mb-3">{title}</h3>
-        <p className="text-sm text-gray-700 mb-6">{message}</p>
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 text-gray-800"
-          >
-            Cancel
-          </button>
+  // Fuzzy matching helper (Word-overlap based for sentence support)
+  const isSimiliarEnough = (input: string, target: string) => {
+    const s = input.toLowerCase().trim();
+    const t = target.toLowerCase().trim();
 
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 rounded-md bg-[#2e8576] hover:bg-[#2e8576] text-white"
-          >
-            YES
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+    // 1. Direct match or substring (e.g., "communication" in "communication is key")
+    if (s.includes(t)) return true;
 
-const RecordsFetch: React.FC = () => {
-  const dispatch = useDispatch();
-  const { data: reduxData, loading } = useSelector((state: RootState) => state.staffReqmtList);
-  // console.log(reduxData, "reduxData-------");
-  const [data, setData] = useState<any[]>([]);
-  const [error, setError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [dataId, setDataId] = useState<any[]>([]);
-  const [finalData, setFinalData] = useState<any[]>([]);
-  const [finalDataOne, setFinalDataOne] = useState<any[]>([]);
-  const [onlyNames, setOnlyNames] = useState<any[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMessage, setModalMessage] = useState("");
-  const [showEditable, setShowEditable] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
-  const [updatedCount, setUpdatedCount] = useState(0);
-  const [updatedRows, setUpdatedRows] = useState<any[]>([]);
-  const [pendingRows, setPendingRows] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("PENDING");
-  const [columnSearchText, setColumnSearchText] = useState("");
-  const [search, setSearch] = useState("");
-  const [value, setValue] = useState("");
-  const editableCols: any = ["invoiceId", "description", "team", "reasons", "Name"];
-  const [gridApi, setGridApi] = useState<GridApi | null>(null);
-  const gridRef = useRef<any>(null);
-  const editedRowIdsRef = useRef<Set<string>>(new Set());
-  const originalDataRef = useRef<any[] | null>(null);
-  const rowKey = (r: any) => `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
-  const isRowSaved = (row: any) => {
-    const key = `${row.row_number}__${row.upload_datetime}__${row.filename}__${row.sub_name}`;
-    return dataId.some(
-      (r) => `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}` === key,
+    const sWords = s.split(/[\s,.;!?]+/).filter((w) => w.length > 2);
+    const tWords = t.split(/[\s,.;!?]+/).filter((w) => w.length > 1); // Allow shorter target words like "AI"
+
+    if (tWords.length === 0) return false;
+
+    // 2. Keyword check: if any word in the target is exactly present in the input sentence
+    // This handles "communication is the importance" matching "Communication Clarity"
+    const hasAnyWordMatch = tWords.some(tw => sWords.includes(tw));
+    if (hasAnyWordMatch) return true;
+
+    // 3. Fuzzy overlap (Check how many target words are represented in the input sentence)
+    const matches = tWords.filter((tw) =>
+      sWords.some((sw) => sw.includes(tw) || tw.includes(sw)),
     );
+
+    const score = matches.length / tWords.length;
+    return score >= 0.6; // Lowered to 0.6 for better sentence support
   };
-  const fetchDatasetSavedRows = async () => {
-    try {
-      const res: any = await Domo.get(`/data/v1/modifiedData`);
-      setDataId(res); // loaded from backend
 
-      setDataId((prev) => {
-        const updated = [...prev];
-        const key = (r: any) =>
-          `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
+  const question = "What skills matter more than grades for data & AI freshers?";
 
-        // Only merge rows that were actually saved (res)
-        res.forEach((row: any) => {
-          const rowKey = key(row);
-          const index = updated.findIndex((r) => key(r) === rowKey);
-          if (index !== -1) updated[index] = row;
-          else updated.push(row);
-        });
+  const skillCriteria = useMemo(
+    () => [
+      {
+        answer: "Learning Agility",
+        similar: [
+          "adaptability",
+          "willingness to learn",
+          "growth mindset",
+          "fast learner",
+          "continuous learning",
+          "learning agility",
+          "learn fast",
+          "continuous learning ability",
+          "flexible learner",
+        ],
+      },
+      {
+        answer: "Problem Thinking",
+        similar: [
+          "analytical thinking",
+          "critical thinking",
+          "structured thinking",
+          "solution orientation",
+          "logical reasoning",
+          "problem thinking",
+          "analytical",
+          "problem solving",
+          "logical thinking",
+        ],
+      },
+      {
+        answer: "Communication Clarity",
+        similar: [
+          "articulation skills",
+          "effective communication",
+          "expression ability",
+          "presentation skills",
+          "clarity of thought",
+          "communication",
+          "clarity",
+          "articulation",
+          "speaking",
+          "talk well",
+        ],
+      },
+      {
+        answer: "Ownership Mindset",
+        similar: [
+          "accountability",
+          "responsibility",
+          "initiative",
+          "proactiveness",
+          "self-driven attitude",
+          "ownership",
+          "ownership mindset",
+          "self driven",
+          "taking charge",
+        ],
+      },
+      {
+        answer: "Comfort with Ambiguity",
+        similar: [
+          "tolerance for uncertainty",
+          "adaptability to change",
+          "flexibility",
+          "open-ended thinking",
+          "situational handling",
+          "comfort with ambiguity",
+          "uncertainty",
+          "handling unknown",
+        ],
+      },
+      {
+        answer: "Collaboration & Team Sense",
+        similar: [
+          "teamwork",
+          "interpersonal skills",
+          "people skills",
+          "cross-functional collaboration",
+          "cooperative attitude",
+          "collaboration",
+          "team sense",
+          "working together",
+          "empathy",
+        ],
+      },
+      {
+        answer: "Ethics & Trustworthiness",
+        similar: [
+          "integrity",
+          "professional ethics",
+          "reliability",
+          "moral responsibility",
+          "credibility",
+          "ethics",
+          "trust",
+          "trustworthy",
+          "honest",
+        ],
+      },
+      {
+        answer: "Curiosity About Business",
+        similar: [
+          "business acumen",
+          "commercial awareness",
+          "customer orientation",
+          "value thinking",
+          "outcome orientation",
+          "business curiosity",
+          "curiosity about business",
+          "business sense",
+        ],
+      },
+      {
+        answer: "Resilience & Grit",
+        similar: [
+          "perseverance",
+          "mental toughness",
+          "emotional strength",
+          "stress management",
+          "persistence",
+          "resilience",
+          "grit",
+          "hard work",
+        ],
+      },
+      {
+        answer: "Basic Professionalism",
+        similar: [
+          "workplace etiquette",
+          "professional conduct",
+          "discipline",
+          "reliability",
+          "work ethics",
+          "basic professionalism",
+          "professionalism",
+          "corporate behavior",
+          "punctuality",
+        ],
+      },
+    ],
+    [],
+  );
 
-        return updated;
-      });
-
-      console.log(res, "res------");
-      return res;
-    } catch (err) {
-      console.error("Dataset fetch failed", err);
-      return [];
-    }
-  };
+  // Voice setup with enhanced phrase-tracking and TTS
   useEffect(() => {
-    fetchDatasetSavedRows();
-  }, []);
+    if (!SpeechRecognition) return;
 
-  useEffect(() => {
-    const fetchDatasetSaved = async () => {
-      try {
-        const query = `SELECT Name FROM "Consultant Details" `;
-        const nameDropdown: any = await Domo.post(`/data/v1/consultant`, {
-          sql: query,
-        });
-        // const onlyNames = nameDropdown?.map((r: any) => r.Name) || [];
-        // console.log(onlyNames, "names--");
-        // setOnlyNames(onlyNames);
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
 
-        const cleaned =
-          nameDropdown?.map((r: any) => ({
-            original: String(r.Name).trim(),
-            key: String(r.Name).trim().toLowerCase(),
-          })) || [];
+    // Text-to-Speech helper
+    const speakResult = (text: string) => {
+      isBotSpeakingRef.current = true;
+      window.speechSynthesis.cancel();
 
-        const uniqueNames = [...new Map(cleaned.map((x: any) => [x.key, x.original])).values()];
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.1;
+      
+      utterance.onend = () => {
+        // Longer cooldown to allow audio buffers to clear
+        setTimeout(() => {
+          isBotSpeakingRef.current = false;
+        }, 1000);
+      };
+      
+      utterance.onerror = () => {
+         isBotSpeakingRef.current = false;
+      };
 
-        setOnlyNames(uniqueNames);
-
-        return nameDropdown;
-      } catch (err) {
-        console.error("Dataset fetch failed", err);
-        return [];
-      }
+      window.speechSynthesis.speak(utterance);
     };
-    fetchDatasetSaved();
-  }, []);
-  useEffect(() => {
-    dispatch(staffReqmtListRequest());
-  }, [dispatch]);
 
-  useEffect(() => {
-    if (!Array.isArray(reduxData) || !Array.isArray(dataId)) return;
-    if (reduxData.length === 0) return;
+    recognition.onstart = () => {
+      console.log("🎤 Mode Active: Continuous Listening...");
+      setIsListening(true);
+    };
 
-    const editableCols: any = ["invoiceId", "description", "team", "reasons", "Name"];
-    const normalize = (v: any) => Number(v);
+    recognition.onresult = (event: any) => {
+      if (isBotSpeakingRef.current) return;
 
-    const dataIdMap = new Map(dataId.map((row: any) => [normalize(row.row_number), row]));
-    const mergedData: any[] = [];
+      let finalStr = "";
+      let interimStr = "";
 
-    reduxData.forEach((row: any) => {
-      const rowNum = normalize(row.row_number);
-      const savedRow = dataIdMap.get(rowNum);
-
-      if (savedRow) {
-        const mergedRow: any = { ...row, ...savedRow };
-
-        editableCols.forEach((col: any) => {
-          if (savedRow[col] !== undefined && savedRow[col] !== null) {
-            mergedRow[col] = savedRow[col];
-          }
-        });
-
-        mergedData.push(mergedRow);
-      } else {
-        mergedData.push({ ...row });
-      }
-    });
-
-    dataId.forEach((row: any) => {
-      const rowNum = normalize(row.row_number);
-
-      if (!reduxData.find((r) => normalize(r.row_number) === rowNum)) {
-        const hasValue = editableCols.some(
-          (col: any) =>
-            row[col] !== undefined && row[col] !== null && row[col].toString().trim() !== "",
-        );
-
-        if (hasValue) mergedData.push({ ...row });
-      }
-    });
-
-    // 🔥 Fallback logic added
-    const finalOutput = mergedData.length > 0 ? mergedData : reduxData;
-
-    setFinalData([...finalOutput]); // force refresh for AgGrid
-    originalDataRef.current = JSON.parse(JSON.stringify(finalOutput));
-  }, [reduxData, dataId]);
-
-  const handleInputChange = useCallback((rowMeta: any, field: any, value: any) => {
-    setFinalData((prev) => {
-      const updated = prev.map((row) =>
-        row.row_number === rowMeta.row_number &&
-        row.upload_datetime === rowMeta.upload_datetime &&
-        row.filename === rowMeta.filename &&
-        row.sub_name === rowMeta.sub_name
-          ? { ...row, [field]: value }
-          : row,
-      );
-
-      if (originalDataRef.current) {
-        const orig = originalDataRef.current.find(
-          (r) =>
-            r.row_number === rowMeta.row_number &&
-            r.upload_datetime === rowMeta.upload_datetime &&
-            r.filename === rowMeta.filename &&
-            r.sub_name === rowMeta.sub_name,
-        );
-
-        const origVal = orig ? orig[field] ?? "" : "";
-
-        if ((value ?? "").trim() !== (origVal ?? "").trim()) {
-          editedRowIdsRef.current.add(JSON.stringify(rowMeta));
-        } else {
-          editedRowIdsRef.current.delete(JSON.stringify(rowMeta));
-        }
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) finalStr += event.results[i][0].transcript;
+        else interimStr += event.results[i][0].transcript;
       }
 
-      return updated;
-    });
-  }, []);
-
-  const handleSubmitClick = () => {
-    setError("");
-    const editedCount = editedRowIdsRef.current.size;
-    if (editedCount > 0) {
-      setModalMessage(
-        `You have modified ${editedCount} row(s). Do you want to save these changes?`,
-      );
-    } else {
-      setModalMessage("No fields were modified. Do you want to submit anyway?");
-    }
-    setIsModalOpen(true);
-  };
-  const refreshTable = () => {
-    gridRef.current?.api.refreshClientSideRowModel("everything");
-    gridRef.current?.api.redrawRows();
-  };
-
-  const handleConfirmSave = async () => {
-    const idteam = "cbc63671-a11a-4680-8ae3-9b0dd7a68934"; // ★ TEAM DATASET
-    const removableCols = ["invoiceId", "description", "team", "reasons", "Name"];
-    setIsModalOpen(false);
-
-    try {
-      setError("");
-      setIsSaving(true);
-      toast.loading("Saving data...");
-
-      if (!finalData || finalData.length === 0) {
-        toast.dismiss();
-        setError("No data to upload!");
-        setIsSaving(false);
+      const lowerFinal = finalStr.toLowerCase();
+      // Heuristic: If the input looks like the bot's own feedback, ignore it
+      const botKeywords = ["correct answer", "already answered", "try another keyword", "found:", "matched:"];
+      if (botKeywords.some(kw => lowerFinal.includes(kw))) {
         return;
       }
 
-      // -----------------------------------------
-      //  ORIGINAL MAIN DATASET LOGIC (UNCHANGED)
-      // -----------------------------------------
-
-      const dataColumns = Object.keys(reduxData[0] || {}).filter(
-        (col) => !removableCols.includes(col),
-      );
-
-      const extraColumns = ["invoiceId", "description", "team", "reasons", "Name"];
-      const DATASET_SCHEMA_ORDER = [...dataColumns, ...extraColumns];
-
-      const cleanedData = finalData.map((row) => {
-        const orderedRow: any = {};
-        DATASET_SCHEMA_ORDER.forEach((col) => {
-          orderedRow[col] =
-            typeof row[col] === "string" ? row[col].replace(/[\r\n]+/g, " ") : row[col] ?? "";
-        });
-        return orderedRow;
-      });
-
-      const csv = Papa.unparse({
-        fields: DATASET_SCHEMA_ORDER,
-        data: cleanedData.map((row) => DATASET_SCHEMA_ORDER.map((col) => row[col])),
-      });
-
-      const datasetId = "8a8f1f7c-8a34-4495-844b-aba35cbd84ee";
-
-      const isAllKeyFieldsEmpty = cleanedData.every((row) =>
-        extraColumns.every((col) => !row[col] || row[col].toString().trim() === ""),
-      );
-
-      if (isAllKeyFieldsEmpty) {
-        await Domo.post("/domo/codeengine/v2/packages/append", {
-          dataset: datasetId,
-          rows: csv.split("\n").slice(1),
-          delimiter: ",",
-        });
-        toast.success("Data appended successfully!");
-      } else {
-        await Domo.post("/domo/codeengine/v2/packages/replace", {
-          datasetId,
-          rows: csv.split("\n").slice(1),
-        });
-        toast.success("Data replaced successfully!");
+      if (interimStr) {
+        setInterimTranscript(interimStr);
       }
 
-      // -----------------------------------------
-      // ★ NEW REQUIREMENT: TEAM GROUPING LOGIC
-      // -----------------------------------------
+      if (finalStr) {
+        const cleanedPhrase = finalStr.trim().toLowerCase();
+        setTranscript((prev) => (prev + " " + finalStr).trim());
+        setInterimTranscript("");
 
-      // Group finalData by team and count
-      const teamCounts: any = {};
+        // Check for incomplete phrases first (only if the whole transcript is just one of these)
+        const incompletePhrases = ["values", "sense", "awareness", "clarity", "mindset"];
+        if (incompletePhrases.includes(cleanedPhrase)) {
+          speakResult("Please complete the word");
+          setFeedback({ text: `"${cleanedPhrase}" - Please complete the word`, status: "wrong" });
+          setTimeout(
+            () =>
+              setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
+            3000,
+          );
+          return;
+        }
 
-      finalData.forEach((row) => {
-        const team = row.team?.trim() || "Unknown";
-        teamCounts[team] = (teamCounts[team] || 0) + 1;
-      });
+        const newMatchIndices: number[] = [];
+        const alreadyFoundNames: string[] = [];
 
-      const teamSummaryArray = Object.entries(teamCounts).map(([team, count]) => ({
-        Team: team,
-        Ticket_Count: count,
-      }));
+        skillCriteria.forEach((item, index) => {
+          const isMatch =
+            isSimiliarEnough(cleanedPhrase, item.answer) ||
+            item.similar.some((s) => isSimiliarEnough(cleanedPhrase, s));
 
-      // Convert to CSV (Team, Ticket_Count)
-      const teamCSV = Papa.unparse({
-        fields: ["Team", "Ticket_Count"],
-        data: teamSummaryArray.map((r) => [r.Team, r.Ticket_Count]),
-      });
-
-      // Append or Replace using same condition logic
-      if (isAllKeyFieldsEmpty) {
-        await Domo.post("/domo/codeengine/v2/packages/append", {
-          dataset: idteam,
-          rows: teamCSV.split("\n").slice(1),
+          if (isMatch) {
+            if (foundIndicesRef.current.includes(index)) {
+              alreadyFoundNames.push(item.answer);
+            } else {
+              newMatchIndices.push(index);
+            }
+          }
         });
-        toast.success("Team data appended!");
-      } else {
-        await Domo.post("/domo/codeengine/v2/packages/replace", {
-          datasetId: idteam,
-          rows: teamCSV.split("\n").slice(1),
-        });
-        toast.success("Team data replaced!");
+        if (newMatchIndices.length > 0) {
+          // Identify all new skills found in this sentence
+          const matchedNames = newMatchIndices.map((idx) => skillCriteria[idx].answer);
+          setFoundIndices((prev) => [...new Set([...prev, ...newMatchIndices])]);
+
+          speakResult(
+            `${newMatchIndices.length > 1 ? "Found: " : ""}${matchedNames.join(", ")} is correct answer`,
+          );
+          setFeedback({ text: `Matched: ${matchedNames.join(", ")}`, status: "correct" });
+        } else if (alreadyFoundNames.length > 0) {
+          const name = alreadyFoundNames[0];
+          speakResult(`${name} was already answered`);
+          setFeedback({ text: `"${name}" - Already answered`, status: "wrong" });
+          setTimeout(
+            () =>
+              setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
+            3000,
+          );
+        } else {
+          setFeedback({ text: `"${cleanedPhrase}" - Try another keyword`, status: "wrong" });
+          setTimeout(
+            () =>
+              setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
+            3000,
+          );
+        }
       }
-      // ★★★ IMPORTANT: refresh dataId from backend immediately after save
-      await fetchDatasetSavedRows();
-      setTimeout(() => {
-        dispatch(staffReqmtListRequest());
-      }, 150);
-      // -----------------------------------------
+    };
 
-      // Reset tracking
-      originalDataRef.current = finalData.map((r) => ({ ...r }));
-      editedRowIdsRef.current = new Set();
+    recognition.onend = () => {
+      if (isListening) {
+        // If we were speaking, the restart will happen via onend/timeout, 
+        // but this acts as a backup to keep the mic alive.
+        setTimeout(() => {
+          if (isListening && !isBotSpeakingRef.current) {
+            try { recognition.start(); } catch(e) {}
+          }
+        }, 300);
+      }
+    };
 
-      toast.success("Saved & table refreshed!");
-      toast.dismiss();
-    } catch (err) {
-      console.error(" Upload error:", err);
-      setError("Upload failed. Check console.");
-      toast.dismiss();
+    recognition.onerror = (e: any) => {
+      console.error("⚠️ Recognition Error:", e.error);
+      if (e.error === "network") {
+        alert("Network error. Please check your internet connection.");
+        setIsListening(false);
+      }
+    };
 
-      toast.error("Upload failed.");
-      refreshTable();
-    } finally {
-      setIsSaving(false);
-      toast.dismiss();
+    recognitionRef.current = recognition;
+    if (isListening) recognition.start();
+
+    return () => {
+      window.speechSynthesis.cancel();
+      if (recognitionRef.current) {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      }
+    };
+  }, [isListening, skillCriteria]);
+
+  const toggleVoice = () => {
+    if (isListening) {
+      setIsListening(false);
+      recognitionRef.current?.stop();
+    } else {
+      setIsListening(true);
+      setTranscript("");
+      setInterimTranscript("");
+      setFeedback({ text: "", status: null });
     }
   };
 
-  const columnDefs: any = useMemo(() => {
-    if (!reduxData || reduxData.length === 0) return [];
+  const resetGame = () => {
+    setFoundIndices([]);
+    setTranscript("");
+    setInterimTranscript("");
+    setFeedback({ text: "", status: null });
+    setIsListening(false);
+  };
 
-    const removableCols = ["invoiceId", "description", "team", "reasons", "Name"];
+  return (
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 md:p-8 font-sans overflow-x-hidden">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header Section */}
+        <div className="bg-white rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-xl border border-slate-100 relative">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-6">
+            <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 overflow-hidden border border-slate-100">
+              <img src={image} alt="GWC Logo" className="w-full h-full object-contain p-1.5" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h1 className="text-sm md:text-base font-medium leading-snug text-slate-700">
+                What skills matter more than grades for freshers in data & AI companies like GWC,
+                beyond good grades?
+              </h1>
+            </div>
+            <div className="bg-[#4889C8] rounded-xl px-4 py-2 md:px-5 md:py-3 text-white flex-shrink-0">
+              <span className="text-xl md:text-2xl font-black">{foundIndices.length}</span>
+              <span className="text-xs md:text-sm opacity-30 ml-1">/ 10</span>
+            </div>
+          </div>
 
-    const SearchableDropdownEditor = forwardRef((props: any, ref) => {
-      const [value, setValue] = useState(props.value || "");
-      const [filter, setFilter] = useState("");
-      const [open, setOpen] = useState(true); // always open for AG Grid popup
-      const wrapperRef = useRef<HTMLDivElement>(null);
+          {/* Feedback Indicator */}
+          <div
+            className={`h-8 md:h-10 flex items-center justify-center transition-all ${feedback.status ? "opacity-100" : "opacity-0"}`}
+          >
+            <span
+              className={`px-3 py-1 md:px-4 md:py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-wider shadow-sm text-center ${
+                feedback.status === "correct"
+                  ? "bg-[#FD7E14] text-white"
+                  : "bg-rose-100 text-rose-600"
+              }`}
+            >
+              {feedback.status === "correct" ? "✓ Match Found!" : feedback.text}
+            </span>
+          </div>
 
-      const options: string[] = props.values || [];
-      const filteredOptions = options.filter((opt) =>
-        opt.toLowerCase().includes(filter.toLowerCase()),
-      );
-
-      // AG Grid required methods
-      useImperativeHandle(ref, () => ({
-        getValue: () => value,
-        isPopup: () => true,
-        isCancelBeforeStart: () => false,
-      }));
-
-      // close popup if clicked outside
-      useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-          if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-            props.stopEditing(); // tell AG Grid to stop editing
-          }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-      }, [props]);
-
-      return (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            backgroundColor: "#fff",
-            border: "1px solid #d1d5db",
-            borderRadius: 4,
-            width: "100%",
-            minWidth: 120,
-            boxShadow: "0 3px 6px rgba(0,0,0,0.15)",
-            fontSize: 13,
-          }}
-        >
-          {/* Search box */}
-          <input
-            autoFocus
-            placeholder="Search..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            style={{
-              padding: "6px 8px",
-              borderBottom: "1px solid #eee",
-              outline: "none",
-            }}
-          />
-
-          {/* Options */}
-          <div style={{ maxHeight: 150, overflowY: "auto" }}>
-            {filteredOptions.map((opt) => (
-              <div
-                key={opt}
-                onClick={() => {
-                  setValue(opt);
-                  props.stopEditing(); // close editor
-                }}
-                style={{
-                  padding: "6px 8px",
-                  cursor: "pointer",
-                  backgroundColor: value === opt ? "#f3f4f6" : "#fff",
-                }}
-              >
-                {opt}
+          {/* Slots Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 md:gap-x-10 gap-y-3 mt-4">
+            {skillCriteria.map((item, idx) => (
+              <div key={idx} className="flex items-center gap-3 h-10">
+                <div
+                  className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-[10px] font-bold border flex-shrink-0 ${
+                    foundIndices.includes(idx)
+                      ? "bg-[#6e2b8b] text-white border-[#6e2b8b]"
+                      : "bg-slate-50 text-slate-400 border-slate-100"
+                  }`}
+                >
+                  {idx + 1}
+                </div>
+                <div className="flex-1 relative h-6 flex items-end pb-1">
+                  {foundIndices.includes(idx) ? (
+                    <div className="w-full px-3 py-1 bg-[#6e2b8b]/10 rounded-lg md:rounded-xl border border-[#6e2b8b]/20 animate-in fade-in duration-300 mb-[-4px]">
+                      <span className="text-[11px] md:text-xs font-bold text-[#6e2b8b]">
+                        {item.answer}
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="h-[2px] w-full bg-slate-200 absolute bottom-0 rounded-full opacity-60"></div>
+                      <span className="text-[8px] md:text-[9px] font-bold text-slate-300  ml-1 mb-[2px]">
+                        Pending
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
-            {filteredOptions.length === 0 && (
-              <div style={{ padding: "6px 8px", color: "#999" }}>No options</div>
-            )}
           </div>
         </div>
-      );
-    });
 
-    
-    const baseColumns = Object.keys(reduxData[0] || {})
-      .filter((col) => !removableCols.includes(col))
-      .map((col) => ({
-        field: col,
-        headerName: col,
-        sortable: true,
-        resizable: true,
-        minWidth: 150,
-
-        editable: false,
-
-        //  FIX: ALWAYS TREAT AS TEXT, no number conversion!
-        // valueFormatter: (params: any) => (params.value ?? "").toString(),
-        valueFormatter: (params: any) => {
-          if (params.value == null || params.value === "") return "";
-
-          const val = Number(params.value);
-
-          if (isNaN(val)) return params.value; // fallback to original
-
-          // Check if number has more than 2 decimal digits
-          const decimalPart = val.toString().split(".")[1];
-          if (decimalPart && decimalPart.length > 2) {
-            return val.toFixed(2); // round to 2 decimal places
-          }
-
-          // Otherwise, show as integer if it's whole, or original value
-          return val % 1 === 0 ? val.toString() : val.toString();
-        },
-        cellStyle: { fontSize: "13px" },
-      }));
-
-    console.log(value, "sdfghjhgvhjkjh");
-    const DropdownCellRenderer = (props: any) => {
-      return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            height: "100%",
-            padding: "2px",
-            marginLeft: "1px", // ← ml-5 equivalent
-          }}
-        >
-          <span>{props.value}</span>
-          <MdArrowDropDown size={20} style={{ flexShrink: 0 }} />
-        </div>
-      );
-    };
-
-    const TextInputCellRenderer = (props: any) => {
-      return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            height: "100%",
-            padding: "0 8px",
-          }}
-        >
-          <span>{props.value || ""}</span>
-          {!props.value && <FaEdit size={16} style={{ flexShrink: 0, opacity: 0.5 }} />}
-        </div>
-      );
-    };
-
-    const editableColumns = [
-      {
-        field: "invoiceId",
-        headerName: "Invoice Id",
-        editable: true,
-
-        sortable: true,
-        resizable: true,
-        minWidth: 150,
-        cellRenderer: TextInputCellRenderer,
-        cellStyle: { textAlign: "left", fontSize: "13px", backgroundColor: "#f3f4f6" },
-        onCellValueChanged: (params: any) =>
-          handleInputChange(
-            {
-              row_number: params.data.row_number,
-              upload_datetime: params.data.upload_datetime,
-              filename: params.data.filename,
-              sub_name: params.data.sub_name,
-            },
-            "invoiceId",
-            params.newValue,
-          ),
-      },
-      {
-        field: "description",
-        headerName: "Description",
-
-        sortable: true,
-        resizable: true,
-        editable: true,
-        minWidth: 200,
-        cellRenderer: TextInputCellRenderer,
-        cellStyle: {
-          fontSize: "13px",
-
-          backgroundColor: "#f3f4f6",
-        },
-        onCellValueChanged: (params: any) =>
-          handleInputChange(
-            {
-              row_number: params.data.row_number,
-              upload_datetime: params.data.upload_datetime,
-              filename: params.data.filename,
-              sub_name: params.data.sub_name,
-            },
-            "description",
-            params.newValue,
-          ),
-      },
-
-      {
-        field: "team",
-        headerName: "team",
-        editable: true,
-        singleClickEdit: true,
-        minWidth: 200,
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: { values: ["Select", ...team_OPTIONS] },
-        cellRenderer: DropdownCellRenderer,
-        valueFormatter: (params: { value: any }) => params.value || "Select",
-        onCellValueChanged: (params: any) =>
-          handleInputChange(
-            {
-              row_number: params.data.row_number,
-              upload_datetime: params.data.upload_datetime,
-              filename: params.data.filename,
-              sub_name: params.data.sub_name,
-            },
-            "team",
-            params.newValue,
-          ),
-        cellStyle: {
-          fontSize: "13px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#f3f4f6",
-        },
-      },
-
-      {
-        field: "reasons",
-        headerName: "Reasons",
-        editable: true,
-
-        singleClickEdit: true,
-        minWidth: 200,
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: { values: ["Select", ...reasons_OPTIONS] },
-        cellRenderer: DropdownCellRenderer,
-        valueFormatter: (params: { value: any }) => params.value || "Select",
-        onCellValueChanged: (params: any) =>
-          handleInputChange(
-            {
-              row_number: params.data.row_number,
-              upload_datetime: params.data.upload_datetime,
-              filename: params.data.filename,
-              sub_name: params.data.sub_name,
-            },
-            "reasons",
-            params.newValue,
-          ),
-        cellStyle: {
-          fontSize: "13px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#f3f4f6",
-        },
-      },
-
-      {
-        field: "Name",
-        headerName: "Name",
-        editable: true,
-
-        singleClickEdit: true,
-        minWidth: 200,
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: { values: ["Select", ...onlyNames] },
-        cellRenderer: DropdownCellRenderer,
-        valueFormatter: (params: { value: any }) => params.value || "Select",
-        onCellValueChanged: (params: any) =>
-          handleInputChange(
-            {
-              row_number: params.data.row_number,
-              upload_datetime: params.data.upload_datetime,
-              filename: params.data.filename,
-              sub_name: params.data.sub_name,
-            },
-            "Name",
-            params.newValue,
-          ),
-        cellStyle: {
-          fontSize: "13px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: "#f3f4f6",
-        },
-      },
-    ];
-
-    return [...baseColumns, ...editableColumns];
-  }, [reduxData, onlyNames, handleInputChange]);
-
-  const isColumnFiltering = columnSearchText.trim().length > 0;
-
-  const defaultColDef = useMemo(() => {
-    const def: any = {
-      minWidth: 120,
-      filter: true,
-      sortable: true,
-      resizable: true,
-    };
-    if (!isColumnFiltering) def.flex = 1; // only set flex when not filtering
-    return def;
-  }, [isColumnFiltering]);
-
-  const visibleRows = useMemo(() => {
-    const editableCols = ["invoiceId", "description", "team", "reasons", "Name"];
-
-    if (!Array.isArray(dataId)) return [];
-
-    const updatedRows: any[] = [];
-    const pendingRows: any[] = [];
-
-    dataId.forEach((row) => {
-      const hasValue = editableCols.some((col) => row[col] && row[col].toString().trim() !== "");
-
-      if (hasValue) updatedRows.push(row);
-      else pendingRows.push(row);
-    });
-
-    //  Update counts properly
-    setPendingCount(pendingRows.length);
-    setUpdatedCount(updatedRows.length);
-
-    console.log(updatedCount, "fhg");
-    console.log(pendingCount, "ghj");
-    // Return rows based on toggle
-    return showEditable ? updatedRows : pendingRows;
-  }, [dataId, showEditable]);
-
-  useEffect(() => {
-    // If reduxData is not ready yet → stop
-    if (!Array.isArray(reduxData)) return;
-
-    // If dataId is not ready yet → also stop
-    if (dataId !== null && dataId !== undefined && !Array.isArray(dataId)) return;
-
-    if (!Array.isArray(dataId) || dataId.length === 0) {
-      const merged = reduxData;
-      setFinalData(merged);
-      setUpdatedRows([]);
-      setPendingRows(merged);
-      return;
-    }
-
-    const key = (r: any) => `${r.row_number}__${r.upload_datetime}__${r.filename}__${r.sub_name}`;
-
-    const dataIdMap = new Map(dataId.map((r) => [key(r), r]));
-    const merged: any[] = [];
-
-    for (const row of reduxData) {
-      const k = key(row);
-      if (dataIdMap.has(k)) {
-        merged.push({ ...row, ...dataIdMap.get(k) });
-        dataIdMap.delete(k);
-      } else {
-        merged.push(row);
-      }
-    }
-
-    merged.push(...dataIdMap.values());
-
-    setFinalData(merged);
-
-    const updated = merged.filter((row) => editableCols.some((c: any) => row[c] && row[c] !== ""));
-
-    const pending = merged.filter((row) => !editableCols.some((c: any) => row[c] && row[c] !== ""));
-
-    setUpdatedRows(updated);
-    setPendingRows(pending);
-  }, [reduxData, dataId]);
-
-  const safePendingRows = Array.isArray(pendingRows) ? pendingRows : [];
-  const safeUpdatedRows = Array.isArray(updatedRows) ? updatedRows : [];
-  const safeReduxData = Array.isArray(reduxData) ? reduxData : [];
-  const safeDataId = Array.isArray(dataId) ? dataId : [];
-
-  let totalRecords = 0;
-  let pendingTabCount = 0;
-  let updatedTabCount = 0;
-
-  // Case 1 → dataId empty
-  if (safeDataId.length === 0) {
-    totalRecords = safeReduxData.length;
-    pendingTabCount = safeReduxData.length;
-    updatedTabCount = 0;
-  }
-  // Case 2 → dataId has records
-  else {
-    totalRecords = safePendingRows.length + safeUpdatedRows.length;
-    pendingTabCount = safePendingRows.length;
-    updatedTabCount = safeUpdatedRows.length;
-  }
-  const removableCols: any = ["invoiceId", "description", "team", "reasons", "Name"];
-  useEffect(() => {
-    const countRowsWithValue = dataId.filter((row) =>
-      removableCols.some((col: any) => row[col] != null && row[col].toString().trim() !== ""),
-    ).length;
-
-    console.log(countRowsWithValue, "ertyuhi-----------");
-  }, [dataId]);
-
-  const totalRecordss = Array.isArray(reduxData) ? reduxData.length : 0;
-  console.log("Total Records:", totalRecordss);
-
-  // If pending = total records - updated records:
-  const pending = totalRecordss - updatedTabCount;
-  console.log("Pending:", pending);
-
-  console.log(finalData, "asdfgh");
-
-  console.log(data, "ddata");
-  // console.log(visibleRows, "visibleRows-----------------");
-  console.log(reduxData, "reduxData");
-  console.log(dataId, "daatID");
-  console.log(finalData, "finalData");
-  const filteredColumnDefs = useMemo(() => {
-    if (!columnSearchText.trim()) return columnDefs;
-
-    const text = columnSearchText.toLowerCase();
-
-    return columnDefs.filter(
-      (col: { headerName: string; field: string }) =>
-        col.headerName.toLowerCase().includes(text) || col.field.toLowerCase().includes(text),
-    );
-  }, [columnSearchText, columnDefs]);
-
-  const onGridReady = (params: any) => {
-    setGridApi(params.api);
-  };
-
-  const clearAllFilters = () => {
-    if (!gridApi) return;
-
-    gridApi.setFilterModel(null);
-    gridApi.onFilterChanged();
-  };
-  return (
-    <div className="min-h-screen  p-6">
-      <div className="max-w-[95vw] mx-auto bg-white shadow-2xl rounded-2xl overflow-hidden">
-        {/* HEADER */}
-        <div className="border border-gray-200 px-6 py-4 flex items-center justify-between">
-          {/* Left Section */}
-          <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-bold text-black">Amex Records Management</h1>
-
-            {/* Toggle Button */}
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showEditable}
-                onChange={() => setShowEditable((prev) => !prev)}
-                className="sr-only peer"
-              />
-              <div className="flex gap-4 items-center">
-                <button
-                  onClick={() => setActiveTab("PENDING")}
-                  className={`px-4 py-2 rounded-xl ${
-                    activeTab === "PENDING" ? "bg-[#212e62] text-white" : "bg-gray-200"
-                  }`}
-                >
-                  Pending ({pending})
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("UPDATED")}
-                  className={`px-4 py-2 rounded-xl ${
-                    activeTab === "UPDATED" ? "bg-[#212e62] text-white" : "bg-gray-200"
-                  }`}
-                >
-                  Updated ({updatedTabCount})
-                </button>
-              </div>
-            </label>
+        {/* Victory Message */}
+        {foundIndices.length === 10 && (
+          <div className="p-4 bg-[#FD7E14] text-white rounded-2xl text-center text-sm md:text-base font-bold animate-bounce shadow-lg">
+            CONGRATULATIONS! You found all 10 skills! 🎉
           </div>
+        )}
 
-          {/* Right Section */}
-          <div className="flex items-center gap-4">
-            <div>
-              Total Records: <span className="font-bold text-[#212e62]">{totalRecordss}</span>
-            </div>
-
+        {/* Voice Controls and Transcript Area */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          <div className="flex items-center justify-center gap-3 sm:gap-4">
             <button
-              onClick={handleSubmitClick}
-              disabled={isSaving}
-              className="bg-[#212e62] hover:bg-[#212e62] rounded-xl text-white px-6 py-2.5 font-semibold transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed hover:shadow-xl"
+              onClick={toggleVoice}
+              className={`w-14 h-14 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center transition-all shadow-lg flex-shrink-0 relative ${
+                isListening ? "bg-[#FD7E14] text-white" : "bg-[#6e2b8b] text-white"
+              }`}
             >
-              {isSaving ? "Submitting..." : "Submit Changes"}
+              {isListening ? (
+                <>
+                  <MicOff size={24} />
+                  <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FD7E14] opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
+                  </span>
+                </>
+              ) : (
+                <Mic size={24} />
+              )}
             </button>
+            
           </div>
+          {/* Transcript Area */}
+          <div className="flex-1 bg-white rounded-2xl md:rounded-3xl p-4 md:p-5 shadow-inner border border-slate-100 min-h-[70px] flex items-center">
+            <p className="text-xs md:text-sm text-slate-500 leading-relaxed italic">
+              {transcript}
+              <span className="text-[#FD7E14] font-medium"> {interimTranscript}</span>
+              {!isListening && !transcript && "Tap the microphone to start answering by voice."}
+            </p>
+          </div>
+          <button
+              onClick={resetGame}
+              className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-white border border-slate-100 text-slate-400 flex items-center justify-center shadow-sm hover:bg-slate-50 transition-colors"
+              title="Reset"
+            >
+              <RotateCcw size={18} />
+            </button>
         </div>
-
-        {/* ERROR */}
-        {error && (
-          <div className="mx-6 mt-4 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-lg shadow-sm">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {error}
-            </div>
-          </div>
-        )}
-        <span className="text-sm text-red-500 flex items-center text-center py-1 mt-2 justify-center">
-          Save your edits — only saved rows move to Updated records. Unsaved changes will be lost,
-          even if you refresh.
-        </span>
-        {/* LOADING */}
-        {loading && <LoadingSpinner />}
-        <div className="p-4 w-full flex flex-col gap-6">
-                  {/* Search Box */}
-                  <div className="relative w-full">
-                    <span className="absolute inset-y-0 left-0 flex items-center justify-center w-14 border border-gray-400 rounded-l-xl bg-[#212e62] text-white">
-                      <FiSearch className="text-white" size={20} />
-                    </span>
-        
-                    <input
-                      className="w-full border border-gray-300 rounded-xl pl-16 pr-4 h-10 text-gray-600 placeholder-gray-400 focus:outline-none"
-                      placeholder="Search Header name..."
-                      value={columnSearchText}
-                      onChange={(e) => setColumnSearchText(e.target.value)}
-                    />
-                  </div>
-        
-                  {/* Filters Button Row */}
-                  <div className="flex items-center justify-start">
-                    <button
-                      className="bg-[#1976d2] text-white px-4 p-1 text-xs font-medium  shadow hover:bg-[#125a9c] transition"
-                      onClick={clearAllFilters}
-                      style={{ borderRadius: "10px" }}
-                    >
-                      Clear All Filters
-                    </button>
-                  </div>
-                </div>
-
-        {/* AG GRID TABLE */}
-        {!loading && finalData && finalData.length > 0 && (
-          <div className="p-4">
-            <div
-              className="ag-theme-alpine rounded-xl overflow-hidden shadow-lg"
-              style={{ height: "800px", width: "100%" }}
-            >
-              <AgGridReact
-                ref={gridRef}
-                rowData={activeTab === "PENDING" ? pendingRows : updatedRows}
-                columnDefs={filteredColumnDefs}
-                animateRows={true}
-                pagination={true}
-                paginationPageSize={100}
-                suppressHorizontalScroll={false}
-                enableBrowserTooltips={true}
-                suppressMovableColumns={false}
-                rowSelection="multiple"
-                theme="legacy"
-                defaultColDef={defaultColDef}
-                enableCellTextSelection={true}
-                cellSelection={true}
-                onGridReady={onGridReady}
-              />
-            </div>
-          </div>
-        )}
-
-        {!loading && finalData && finalData.length === 0 && (
-          <div className="text-center text-gray-500 py-20">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400 mb-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-              />
-            </svg>
-            <p className="text-lg font-medium">No records found in dataset.</p>
-          </div>
-        )}
       </div>
-
-      {/* Confirm modal */}
-      <ConfirmModal
-        open={isModalOpen}
-        title="Save Confirmation"
-        message={modalMessage}
-        onConfirm={handleConfirmSave}
-        onClose={() => setIsModalOpen(false)}
-      />
     </div>
   );
 };
 
-export default RecordsFetch;
-function isRowEdited(_row: any): boolean {
-  throw new Error("Function not implemented.");
-}
+export default VoiceInput;

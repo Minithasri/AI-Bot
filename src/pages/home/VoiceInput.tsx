@@ -206,191 +206,272 @@ const VoiceInput = () => {
   );
 
   // Voice setup with enhanced phrase-tracking and TTS
-  useEffect(() => {
-    if (!SpeechRecognition) return;
+  // useEffect(() => {
+  //   if (!SpeechRecognition) return;
 
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
+  //   const recognition = new SpeechRecognition();
+  //   recognition.continuous = true;
+  //   recognition.interimResults = true;
+  //   recognition.lang = "en-US";
 
-    // Text-to-Speech helper
-    const speakResult = (text: string) => {
-      isBotSpeakingRef.current = true;
-      window.speechSynthesis.cancel();
+  //   // Text-to-Speech helper
+  //   const speakResult = (text: string) => {
+  //     isBotSpeakingRef.current = true;
+  //     window.speechSynthesis.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1.1;
+  //     const utterance = new SpeechSynthesisUtterance(text);
+  //     utterance.rate = 1.1;
 
-      utterance.onend = () => {
-        // Longer cooldown to allow audio buffers to clear
-        setTimeout(() => {
-          isBotSpeakingRef.current = false;
-        }, 1000);
-      };
+  //     utterance.onend = () => {
+  //       // Longer cooldown to allow audio buffers to clear
+  //       setTimeout(() => {
+  //         isBotSpeakingRef.current = false;
+  //       }, 1000);
+  //     };
 
-      utterance.onerror = () => {
-        isBotSpeakingRef.current = false;
-      };
+  //     utterance.onerror = () => {
+  //       isBotSpeakingRef.current = false;
+  //     };
 
-      window.speechSynthesis.speak(utterance);
-    };
+  //     window.speechSynthesis.speak(utterance);
+  //   };
 
-    recognition.onstart = () => {
-      console.log("🎤 Mode Active: Continuous Listening...");
-      setIsListening(true);
-    };
+  //   recognition.onstart = () => {
+  //     console.log("🎤 Mode Active: Continuous Listening...");
+  //     setIsListening(true);
+  //   };
 
-    recognition.onresult = (event: any) => {
-      if (isBotSpeakingRef.current) return;
+  //   recognition.onresult = (event: any) => {
+  //     if (isBotSpeakingRef.current) return;
 
-      let finalStr = "";
-      let interimStr = "";
+  //     let finalStr = "";
+  //     let interimStr = "";
 
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) finalStr += event.results[i][0].transcript;
-        else interimStr += event.results[i][0].transcript;
-      }
+  //     for (let i = event.resultIndex; i < event.results.length; ++i) {
+  //       if (event.results[i].isFinal) finalStr += event.results[i][0].transcript;
+  //       else interimStr += event.results[i][0].transcript;
+  //     }
 
-      const lowerFinal = finalStr.toLowerCase();
-      // Heuristic: If the input looks like the bot's own feedback, ignore it
-      const botKeywords = [
-        "correct answer",
-        "already answered",
-        "try another keyword",
-        "found:",
-        "matched:",
-      ];
-      if (botKeywords.some((kw) => lowerFinal.includes(kw))) {
-        return;
-      }
+  //     const lowerFinal = finalStr.toLowerCase();
+  //     // Heuristic: If the input looks like the bot's own feedback, ignore it
+  //     const botKeywords = [
+  //       "correct answer",
+  //       "already answered",
+  //       "try another keyword",
+  //       "found:",
+  //       "matched:",
+  //     ];
+  //     if (botKeywords.some((kw) => lowerFinal.includes(kw))) {
+  //       return;
+  //     }
 
-      if (interimStr) {
-        setInterimTranscript(interimStr);
-      }
+  //     if (interimStr) {
+  //       setInterimTranscript(interimStr);
+  //     }
 
-      if (finalStr) {
-        setTranscript((prev) => (prev + " " + finalStr).trim());
-        setInterimTranscript("");
+  //     if (finalStr) {
+  //       setTranscript((prev) => (prev + " " + finalStr).trim());
+  //       setInterimTranscript("");
 
-        // 1. Process User Sentence into meaningful keywords
-        const stopWords = new Set([
-          "a", "an", "the", "i", "by", "is", "am", "are", "was", "were", "be", "been", "being",
-          "have", "has", "had", "do", "does", "did", "to", "for", "of", "with", "at", "on", "in",
-          "and", "but", "or", "even", "when", "how", "why", "who", "which", "my", "me", "your",
-          "our", "it", "this", "that", "these", "those", "can", "could", "will", "would", "shall",
-          "should", "show", "showed", "showing", "helps", "help", "stay", "stayed", "staying",
-          "tasks", "become", "feel", "feeling", "manage", "use", "using", "allows", "come",
-          "important", "importance", "like", "actually", "just", "very", "more", "now", "here"
-        ]);
+  //       // 1. Process User Sentence into meaningful keywords
+  //       const stopWords = new Set([
+  //         "a", "an", "the", "i", "by", "is", "am", "are", "was", "were", "be", "been", "being",
+  //         "have", "has", "had", "do", "does", "did", "to", "for", "of", "with", "at", "on", "in",
+  //         "and", "but", "or", "even", "when", "how", "why", "who", "which", "my", "me", "your",
+  //         "our", "it", "this", "that", "these", "those", "can", "could", "will", "would", "shall",
+  //         "should", "show", "showed", "showing", "helps", "help", "stay", "stayed", "staying",
+  //         "tasks", "become", "feel", "feeling", "manage", "use", "using", "allows", "come",
+  //         "important", "importance", "like", "actually", "just", "very", "more", "now", "here"
+  //       ]);
 
-        const cleanedPhrase = finalStr.trim().toLowerCase();
-        const sentences = finalStr.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+  //       const cleanedPhrase = finalStr.trim().toLowerCase();
+  //       const sentences = finalStr.split(/[.!?]+/).filter((s) => s.trim().length > 0);
 
-        // 2. Process each sentence to find exactly ONE new match
-        let matchedIndex = -1;
-        let isAlreadyFound = false;
-        let matchedSomething = false;
+  //       // 2. Process each sentence to find exactly ONE new match
+  //       let matchedIndex = -1;
+  //       let isAlreadyFound = false;
+  //       let matchedSomething = false;
 
-        for (const sentence of sentences) {
-          const userMeaningfulWords = sentence
-            .toLowerCase()
-            .trim()
-            .split(/[\s,.;!?]+/)
-            .filter((w) => w.length >= 2 && !stopWords.has(w)); // Length 2 for words like "AI"
+  //       for (const sentence of sentences) {
+  //         const userMeaningfulWords = sentence
+  //           .toLowerCase()
+  //           .trim()
+  //           .split(/[\s,.;!?]+/)
+  //           .filter((w) => w.length >= 2 && !stopWords.has(w)); // Length 2 for words like "AI"
 
-          if (userMeaningfulWords.length === 0) continue;
+  //         if (userMeaningfulWords.length === 0) continue;
 
-          let bestScore = 0;
-          let bestIndexForMatch = -1;
+  //         let bestScore = 0;
+  //         let bestIndexForMatch = -1;
 
-          for (let i = 0; i < skillCriteria.length; i++) {
-            const item = skillCriteria[i];
+  //         for (let i = 0; i < skillCriteria.length; i++) {
+  //           const item = skillCriteria[i];
             
-            // Calculate scores for answer and all similar phrases
-            const scores = [
-              calculateMatchScore(userMeaningfulWords, item.answer),
-              ...item.similar.map(s => calculateMatchScore(userMeaningfulWords, s))
-            ];
+  //           // Calculate scores for answer and all similar phrases
+  //           const scores = [
+  //             calculateMatchScore(userMeaningfulWords, item.answer),
+  //             ...item.similar.map(s => calculateMatchScore(userMeaningfulWords, s))
+  //           ];
             
-            const maxScore = Math.max(...scores);
+  //           const maxScore = Math.max(...scores);
 
-            if (maxScore > 0) {
-              matchedSomething = true;
-              if (foundIndicesRef.current.includes(i)) {
-                isAlreadyFound = true;
-              } else if (maxScore > bestScore) {
-                bestScore = maxScore;
-                bestIndexForMatch = i;
-              }
-            }
-          }
+  //           if (maxScore > 0) {
+  //             matchedSomething = true;
+  //             if (foundIndicesRef.current.includes(i)) {
+  //               isAlreadyFound = true;
+  //             } else if (maxScore > bestScore) {
+  //               bestScore = maxScore;
+  //               bestIndexForMatch = i;
+  //             }
+  //           }
+  //         }
           
-          if (bestIndexForMatch !== -1) {
-            matchedIndex = bestIndexForMatch;
-            break; 
-          }
-        }
+  //         if (bestIndexForMatch !== -1) {
+  //           matchedIndex = bestIndexForMatch;
+  //           break; 
+  //         }
+  //       }
 
-        if (matchedIndex !== -1) {
-          const name = skillCriteria[matchedIndex].answer;
-          setFoundIndices((prev) => [...new Set([...prev, matchedIndex])]);
-          speakResult(`${name} is correct answer`);
-          setFeedback({ text: `Matched: ${name}`, status: "correct" });
-        } else if (isAlreadyFound) {
-          // Only report "already answered" if we didn't find ANY new matches in the whole chunk
-          speakResult(`That was already answered`);
-          setFeedback({ text: `Already answered`, status: "wrong" });
-          setTimeout(
-            () =>
-              setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
-            3000,
-          );
-        } else if (!matchedSomething) {
-          // Optional: handle "Try another keyword" only if we didn't match anything at all
-          setFeedback({ text: `Try another keyword`, status: "wrong" });
-          setTimeout(
-            () =>
-              setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
-            3000,
-          );
-        }
-      }
+  //       if (matchedIndex !== -1) {
+  //         const name = skillCriteria[matchedIndex].answer;
+  //         setFoundIndices((prev) => [...new Set([...prev, matchedIndex])]);
+  //         speakResult(`${name} is correct answer`);
+  //         setFeedback({ text: `Matched: ${name}`, status: "correct" });
+  //       } else if (isAlreadyFound) {
+  //         // Only report "already answered" if we didn't find ANY new matches in the whole chunk
+  //         speakResult(`That was already answered`);
+  //         setFeedback({ text: `Already answered`, status: "wrong" });
+  //         setTimeout(
+  //           () =>
+  //             setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
+  //           3000,
+  //         );
+  //       } else if (!matchedSomething) {
+  //         // Optional: handle "Try another keyword" only if we didn't match anything at all
+  //         setFeedback({ text: `Try another keyword`, status: "wrong" });
+  //         setTimeout(
+  //           () =>
+  //             setFeedback((prev) => (prev.status === "wrong" ? { text: "", status: null } : prev)),
+  //           3000,
+  //         );
+  //       }
+  //     }
+  //   };
+
+  //   recognition.onend = () => {
+  //     if (isListening) {
+  //       // If we were speaking, the restart will happen via onend/timeout,
+  //       // but this acts as a backup to keep the mic alive.
+  //       setTimeout(() => {
+  //         if (isListening && !isBotSpeakingRef.current) {
+  //           try {
+  //             recognition.start();
+  //           } catch (e) {}
+  //         }
+  //       }, 300);
+  //     }
+  //   };
+
+  //   recognition.onerror = (e: any) => {
+  //     console.error("⚠️ Recognition Error:", e.error);
+  //     if (e.error === "network") {
+  //       alert("Network error. Please check your internet connection.");
+  //       setIsListening(false);
+  //     }
+  //   };
+
+  //   recognitionRef.current = recognition;
+  //   if (isListening) recognition.start();
+
+  //   return () => {
+  //     window.speechSynthesis.cancel();
+  //     if (recognitionRef.current) {
+  //       recognitionRef.current.onend = null;
+  //       recognitionRef.current.stop();
+  //     }
+  //   };
+  // }, [isListening, skillCriteria]);
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const SpeechRecognition =
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) return;
+
+  const recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  // Text-to-Speech helper
+  const speakResult = (text: string) => {
+    isBotSpeakingRef.current = true;
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.1;
+
+    utterance.onend = () => {
+      setTimeout(() => {
+        isBotSpeakingRef.current = false;
+      }, 1000);
     };
 
-    recognition.onend = () => {
-      if (isListening) {
-        // If we were speaking, the restart will happen via onend/timeout,
-        // but this acts as a backup to keep the mic alive.
-        setTimeout(() => {
-          if (isListening && !isBotSpeakingRef.current) {
-            try {
-              recognition.start();
-            } catch (e) {}
-          }
-        }, 300);
-      }
+    utterance.onerror = () => {
+      isBotSpeakingRef.current = false;
     };
 
-    recognition.onerror = (e: any) => {
-      console.error("⚠️ Recognition Error:", e.error);
-      if (e.error === "network") {
-        alert("Network error. Please check your internet connection.");
-        setIsListening(false);
-      }
-    };
+    window.speechSynthesis.speak(utterance);
+  };
 
-    recognitionRef.current = recognition;
-    if (isListening) recognition.start();
+  recognition.onstart = () => {
+    setIsListening(true);
+  };
 
-    return () => {
-      window.speechSynthesis.cancel();
-      if (recognitionRef.current) {
-        recognitionRef.current.onend = null;
-        recognitionRef.current.stop();
-      }
-    };
-  }, [isListening, skillCriteria]);
+  recognition.onresult = (event: any) => {
+    if (isBotSpeakingRef.current) return;
+
+    let finalStr = "";
+    let interimStr = "";
+
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal)
+        finalStr += event.results[i][0].transcript;
+      else interimStr += event.results[i][0].transcript;
+    }
+
+    if (interimStr) setInterimTranscript(interimStr);
+
+    if (finalStr) {
+      setTranscript((prev) => (prev + " " + finalStr).trim());
+      setInterimTranscript("");
+      // 👉 your existing matching logic stays exactly the same
+    }
+  };
+
+  recognition.onend = () => {
+    if (isListening && !isBotSpeakingRef.current) {
+      try {
+        recognition.start();
+      } catch {}
+    }
+  };
+
+  recognition.onerror = () => {
+    setIsListening(false);
+  };
+
+  recognitionRef.current = recognition;
+
+  if (isListening) recognition.start();
+
+  return () => {
+    window.speechSynthesis.cancel();
+    recognition.stop();
+  };
+}, [isListening, skillCriteria]);
 
   const toggleVoice = () => {
     if (isListening) {
